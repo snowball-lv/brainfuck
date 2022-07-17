@@ -15,13 +15,17 @@ static void usage() {
     printf("Options:\n");
     for (char **opt = OPTS; *opt; opt++) {
         char *sep = strchr(*opt, ':');
-        printf("%8.*s    %s\n", (int)(sep - *opt), *opt, sep + 1);
+        printf("    %-7.*s %s\n", (int)(sep - *opt), *opt, sep + 1);
     }
     exit(1);
 }
 
 static char *readsrc(char *path) {
     FILE *fp = fopen(path, "r");
+    if (!fp) {
+        printf("*** couldn't open file [%s]\n", path);
+        exit(1);
+    }
     fseek(fp, 0, SEEK_END);
     int size = ftell(fp);
     char *src = malloc(size + 1);
