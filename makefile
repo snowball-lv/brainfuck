@@ -32,9 +32,10 @@ clean:
 	rm -rf out bin
 
 test: all
-	# $(BIN) hello.bf
-	# printf "hello\0" | $(BIN) echo.bf; echo
-	# printf "hello\0" | $(BIN) rev.bf; echo
+	# $(BIN)
+	$(BIN) -i hello.bf
+	printf "hello\0" | $(BIN) -i echo.bf; echo
+	printf "hello\0" | $(BIN) -i rev.bf; echo
 	$(BIN) hello.bf >prog.asm
 	nasm -f elf64 prog.asm -o prog.o
 	gcc -static prog.o -o prog

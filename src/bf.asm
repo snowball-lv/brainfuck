@@ -48,9 +48,9 @@ prevlbrack:
     mov rax, rsi
     ret
 
-; int interpret2(char *buf, int ip);
-global interpret2
-interpret2:
+; void interpretasm(char *src);
+global interpretasm
+interpretasm:
     
     ; prologue
     push rbp
@@ -66,7 +66,7 @@ interpret2:
     mov [rbp - 24], r14
     mov [rbp - 32], r15
     mov r12, rdi
-    mov r13, rsi
+    mov r13, 0
 
     mov rcx, 16 * 1875 ; 30000 bytes for data
 .zerodata:
