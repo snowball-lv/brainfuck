@@ -7,6 +7,7 @@ static char *OPTS[] = {
     "-c:default, compiles to NASM and prints to stdout",
     "-i:interpret using ASM interpreter",
     "-ic:interpret using C interpreter",
+    "-iir:convert to intermediate representation and interpret that",
     0,
 };
 
@@ -51,12 +52,14 @@ int bfread() {
 int main(int argc, char **argv) {
     int run = 0;
     int runc = 0;
+    int runir = 0;
     int compile = 1;
     char *file = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0) run = 1;
         else if (strcmp(argv[i], "-ic") == 0) runc = 1;
         else if (strcmp(argv[i], "-c") == 0) compile = 1;
+        else if (strcmp(argv[i], "-iir") == 0) runir = 1;
         else if (!file) file = argv[i];
         else printf("*** unknown option [%s]\n", argv[i]);
     }
@@ -67,6 +70,7 @@ int main(int argc, char **argv) {
     char *src = readsrc(file);
     if (run) interpretasm(src);
     else if (runc) interpretc(src);
+    else if (runir) interpretir(src);
     else if (compile) gennasm(src);
     free(src);
     return 0;
