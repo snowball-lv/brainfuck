@@ -5,8 +5,7 @@ enum {
     OP_WRITE, OP_READ,
     OP_ADD,
     OP_LOAD, OP_STORE,
-    OP_CJMP,
-    OP_LABEL,
+    OP_JMP, OP_CJMP,
     OP_NOT,
     OP_NOP,
 };
@@ -45,6 +44,7 @@ typedef struct {
 typedef struct {
     Block *blocks;
     int blkcnt;
+    Block *curblk;
     int tmpcnt;
     Cons *cons;
     int conscnt;
@@ -63,15 +63,15 @@ Ref refcons(int id);
 int isreftmp(Ref r);
 int isrefint(Chunk *chunk, Ref r);
 
-void emitins(Block *blk, Ins i);
+void emitins(Block *blk, Ins ins);
 void erase(Block *blk, int pos, int cnt);
 void insert(Block *blk, int pos, Ins *ins, int cnt);
 
 Ins iload(Ref dst, Ref src);
 Ins istore(Ref dst, Ref src);
 Ins iadd(Ref dst, Ref src);
+Ins ijmp(Ref lbl);
 Ins icjmp(Ref src, Ref lbl);
-Ins ilabel(Ref lbl);
 Ins inot(Ref tmp);
 
 void printchunk(Chunk *chunk);

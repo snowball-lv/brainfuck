@@ -52,10 +52,10 @@ int isrefint(Chunk *chunk, Ref r) {
     return r.type == REF_CONS && chunk->cons[r.val].type == CONS_INT;
 }
 
-void emitins(Block *blk, Ins i) {
+void emitins(Block *blk, Ins ins) {
     blk->inscnt++;
     blk->ins = realloc(blk->ins, blk->inscnt * sizeof(Ins));
-    blk->ins[blk->inscnt - 1] = i;
+    blk->ins[blk->inscnt - 1] = ins;
 }
 
 void erase(Block *blk, int pos, int cnt) {
@@ -88,8 +88,8 @@ Ins icjmp(Ref src, Ref lbl) {
     return (Ins){.op = OP_CJMP, .args = {src, lbl}};
 }
 
-Ins ilabel(Ref lbl) {
-    return (Ins){.op = OP_LABEL, .args = {lbl}};
+Ins ijmp(Ref lbl) {
+    return (Ins){.op = OP_JMP, .args = {lbl}};
 }
 
 Ins inot(Ref tmp) {
@@ -108,6 +108,7 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
 
 static void printblock(Chunk *chunk, Block *blk) {
     char bufs[2][16];
+    printf("Block @L%i\n", blk->lbl);
     for (int ip = 0; ip < blk->inscnt; ip++) {
         printf("%3i: ", ip);
         Ins *i = &blk->ins[ip];
@@ -130,14 +131,14 @@ static void printblock(Chunk *chunk, Block *blk) {
             reftostr(chunk, bufs[1], i->args[1]);
             printf("STORE %s, [%s]\n", bufs[0], bufs[1]);
             break;
+        case OP_JMP:
+            reftostr(chunk, bufs[0], i->args[0]);
+            printf("JMP %s\n", bufs[0]);
+            break;
         case OP_CJMP:
             reftostr(chunk, bufs[0], i->args[0]);
             reftostr(chunk, bufs[1], i->args[1]);
             printf("CJMP %s, %s\n", bufs[0], bufs[1]);
-            break;
-        case OP_LABEL:
-            reftostr(chunk, bufs[0], i->args[0]);
-            printf("%s:\n", bufs[0]);
             break;
         case OP_NOT:
             reftostr(chunk, bufs[0], i->args[0]);
