@@ -2,10 +2,7 @@
 
 enum {
     OP_NONE,
-    OP_MOVL, OP_MOVR,
-    OP_INC, OP_DEC,
     OP_WRITE, OP_READ,
-    OP_JMPFWD, OP_JMPBCK,
     OP_ADD,
     OP_LOAD, OP_STORE,
     OP_CJMP,

@@ -14,34 +14,8 @@ static void runir(Chunk *chunk) {
     for (int ip = 0; ip < blk->inscnt; ip++) {
         Ins *i = &blk->ins[ip];
         switch (i->op) {
-        // case OP_MOVL: DP--; break;
-        // case OP_MOVR: DP++; break;
-        // case OP_INC: data[DP]++; break;
-        // case OP_DEC: data[DP]--; break;
         case OP_WRITE: bfwrite(data[DP]); break;
         case OP_READ: data[DP] = bfread(); break;
-        // case OP_JMPFWD:
-        //     if (data[DP]) break;
-        //     ip++;
-        //     for (int depth = 0;; ip++) {
-        //         if (chunk->ins[ip].op == OP_JMPBCK)
-        //             if (depth == 0) break;
-        //             else depth--;
-        //         else if (chunk->ins[ip].op == OP_JMPFWD)
-        //             depth++;
-        //     }
-        //     break;
-        // case OP_JMPBCK:
-        //     if (!data[DP]) break;
-        //     ip--;
-        //     for (int depth = 0;; ip--) {
-        //         if (chunk->ins[ip].op == OP_JMPFWD)
-        //             if (depth == 0) break;
-        //             else depth--;
-        //         else if (chunk->ins[ip].op == OP_JMPBCK)
-        //             depth++;
-        //     }
-        //     break;
         case OP_ADD:
             assert(isreftmp(i->args[0]));
             assert(isrefint(chunk, i->args[1]));
@@ -81,73 +55,56 @@ static void runir(Chunk *chunk) {
     free(tmps);
 }
 
-static int opt(Chunk *chunk) {
-    int changed = 0;
-    Block *blk = &chunk->blocks[0];
-    for (int ip = 0; ip < blk->inscnt; ip++) {
-        Ins *i = &blk->ins[ip];
-        if (i->op == OP_MOVL || i->op == OP_MOVR) {
-            int off = i->op == OP_MOVL ? -1 : 1;
-            i->op = OP_ADD;
-            i->args[0] = reftmp(chunk->dptmpid);
-            i->args[1] = refcons(newint(chunk, off));
-            changed = 1;
-        }
-        else if (i->op == OP_INC || i->op == OP_DEC) {
-            int off = i->op == OP_INC ? 1 : -1;
+static int _genir(Chunk *chunk, Block *blk, char *src, int ip) {
+    for (; src[ip]; ip++) {
+        switch (src[ip]) {
+        case '<':
+            emitins(blk, iadd(
+                    reftmp(chunk->dptmpid),
+                    refcons(newint(chunk, -1))));
+            break;
+        case '>':
+            emitins(blk, iadd(
+                    reftmp(chunk->dptmpid),
+                    refcons(newint(chunk, 1))));
+            break;
+        case '+': {
             int tmp = newtmp(chunk);
-            Ins ins[] = {
-                iload(reftmp(tmp), reftmp(chunk->dptmpid)),
-                iadd(reftmp(tmp), refcons(newint(chunk, off))),
-                istore(reftmp(tmp), reftmp(chunk->dptmpid)),
-            };
-            i->op = OP_NOP;
-            insert(blk, ip, ins, sizeof(ins) / sizeof(Ins));
-            changed = 1;
+            emitins(blk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emitins(blk, iadd(reftmp(tmp), refcons(newint(chunk, 1))));
+            emitins(blk, istore(reftmp(tmp), reftmp(chunk->dptmpid)));
+            break;
         }
-        else if (i->op == OP_JMPFWD) {
-            int dstip = ip + 1;
-            for (int depth = 0;; dstip++) {
-                if (blk->ins[dstip].op == OP_JMPBCK)
-                    if (depth == 0) break;
-                    else depth--;
-                else if (blk->ins[dstip].op == OP_JMPFWD)
-                    depth++;
-            }
-            i->op = OP_NOP;
-            blk->ins[dstip].op = OP_NOP;
+        case '-': {
+            int tmp = newtmp(chunk);
+            emitins(blk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emitins(blk, iadd(reftmp(tmp), refcons(newint(chunk, -1))));
+            emitins(blk, istore(reftmp(tmp), reftmp(chunk->dptmpid)));
+            break;
+        }
+        case '.': emitins(blk, (Ins){OP_WRITE}); break;
+        case ',': emitins(blk, (Ins){OP_READ}); break;
+        case '[': {
+            int tmp = newtmp(chunk);
             int startlbl = newlbl(chunk);
             int endlbl = newlbl(chunk);
-            // insert loop end
-            int endtmp = newtmp(chunk);
-            Ins endins[] = {
-                iload(reftmp(endtmp), reftmp(chunk->dptmpid)),
-                icjmp(reftmp(endtmp), reflbl(startlbl)),
-                ilabel(reflbl(endlbl)),
-            };
-            insert(blk, dstip, endins, sizeof(endins) / sizeof(Ins));
-            // insert loop start
-            int starttmp = newtmp(chunk);
-            Ins startins[] = {
-                iload(reftmp(starttmp), reftmp(chunk->dptmpid)),
-                inot(reftmp(starttmp)),
-                icjmp(reftmp(starttmp), reflbl(endlbl)),
-                ilabel(reflbl(startlbl)),
-            };
-            insert(blk, ip, startins, sizeof(startins) / sizeof(Ins));
-            ip += sizeof(startins) / sizeof(Ins); // jump over fwd
-            changed = 1;
+            // emit head
+            emitins(blk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emitins(blk, inot(reftmp(tmp)));
+            emitins(blk, icjmp(reftmp(tmp), reflbl(endlbl)));
+            emitins(blk, ilabel(reflbl(startlbl)));
+            // emit enclosed code
+            ip = _genir(chunk, blk, src, ip + 1);
+            // emit tail
+            emitins(blk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emitins(blk, icjmp(reftmp(tmp), reflbl(startlbl)));
+            emitins(blk, ilabel(reflbl(endlbl)));
+            break;
         }
-        else if (i->op == OP_NOP) {
-            int end = ip + 1;
-            for (; end < blk->inscnt; end++) {
-                if (blk->ins[end].op != OP_NOP) break;
-            }
-            erase(blk, ip, end - ip);
-            changed = 1;
+        case ']': return ip;
         }
     }
-    return changed;
+    return ip;
 }
 
 static void genir(Chunk *chunk, char *src) {
@@ -155,24 +112,12 @@ static void genir(Chunk *chunk, char *src) {
     Block *blk = &chunk->blocks[blkid];
     blk->lbl = newlbl(chunk);
     chunk->dptmpid = newtmp(chunk);
-    for (int ip = 0; src[ip]; ip++) {
-        switch (src[ip]) {
-        case '<': emitins(blk, (Ins){OP_MOVL}); break;
-        case '>': emitins(blk, (Ins){OP_MOVR}); break;
-        case '+': emitins(blk, (Ins){OP_INC}); break;
-        case '-': emitins(blk, (Ins){OP_DEC}); break;
-        case '.': emitins(blk, (Ins){OP_WRITE}); break;
-        case ',': emitins(blk, (Ins){OP_READ}); break;
-        case '[': emitins(blk, (Ins){OP_JMPFWD}); break;
-        case ']': emitins(blk, (Ins){OP_JMPBCK}); break;
-        }
-    }
+    _genir(chunk, blk, src, 0);
 }
 
 void interpretir(char *src) {
     Chunk chunk = {0};
     genir(&chunk, src);
-    while (opt(&chunk));
-    // printchunk(&chunk);
+    printchunk(&chunk);
     runir(&chunk);
 }

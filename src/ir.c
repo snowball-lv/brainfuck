@@ -112,14 +112,8 @@ static void printblock(Chunk *chunk, Block *blk) {
         printf("%3i: ", ip);
         Ins *i = &blk->ins[ip];
         switch (i->op) {
-        case OP_MOVL: printf("MOVL\n"); break;
-        case OP_MOVR: printf("MOVR\n"); break;
-        case OP_INC: printf("INC\n"); break;
-        case OP_DEC: printf("DEC\n"); break;
         case OP_WRITE: printf("WRITE\n"); break;
         case OP_READ: printf("READ\n"); break;
-        case OP_JMPFWD: printf("JMPFWD\n"); break;
-        case OP_JMPBCK: printf("JMPBCK\n"); break;
         case OP_NOP: printf("NOP\n"); break;
         case OP_ADD:
             reftostr(chunk, bufs[0], i->args[0]);
