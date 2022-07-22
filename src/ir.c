@@ -15,7 +15,10 @@ int newlbl(Chunk *chunk) {
 }
 
 int newtmp(Chunk *chunk) {
-    return chunk->tmpcnt++;
+    chunk->tmpcnt++;
+    chunk->tmps = realloc(chunk->tmps, chunk->tmpcnt * sizeof(Tmp));
+    chunk->tmps[chunk->tmpcnt - 1] = (Tmp){0};
+    return chunk->tmpcnt - 1;
 }
 
 static int newcons(Chunk *chunk) {
@@ -106,46 +109,49 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
     if (r.type == REF_LBL) sprintf(buf, "@L%i", r.val);
 }
 
-static void printblock(Chunk *chunk, Block *blk) {
+void printins(Chunk *chunk, Ins *i) {
     char bufs[2][16];
+    switch (i->op) {
+    case OP_WRITE: printf("WRITE\n"); break;
+    case OP_READ: printf("READ\n"); break;
+    case OP_NOP: printf("NOP\n"); break;
+    case OP_ADD:
+        reftostr(chunk, bufs[0], i->args[0]);
+        reftostr(chunk, bufs[1], i->args[1]);
+        printf("ADD %s, %s\n", bufs[0], bufs[1]);
+        break;
+    case OP_LOAD8:
+        reftostr(chunk, bufs[0], i->args[0]);
+        reftostr(chunk, bufs[1], i->args[1]);
+        printf("LOAD BYTE %s, [%s]\n", bufs[0], bufs[1]);
+        break;
+    case OP_STORE8:
+        reftostr(chunk, bufs[0], i->args[0]);
+        reftostr(chunk, bufs[1], i->args[1]);
+        printf("STORE BYTE %s, [%s]\n", bufs[0], bufs[1]);
+        break;
+    case OP_JMP:
+        reftostr(chunk, bufs[0], i->args[0]);
+        printf("JMP %s\n", bufs[0]);
+        break;
+    case OP_CJMP:
+        reftostr(chunk, bufs[0], i->args[0]);
+        reftostr(chunk, bufs[1], i->args[1]);
+        printf("CJMP %s, %s\n", bufs[0], bufs[1]);
+        break;
+    case OP_NOT:
+        reftostr(chunk, bufs[0], i->args[0]);
+        printf("NOT %s\n", bufs[0]);
+        break;
+    default: printf("???\n"); break;
+    }
+}
+
+static void printblock(Chunk *chunk, Block *blk) {
     printf("Block @L%i\n", blk->lbl);
     for (int ip = 0; ip < blk->inscnt; ip++) {
         printf("%3i: ", ip);
-        Ins *i = &blk->ins[ip];
-        switch (i->op) {
-        case OP_WRITE: printf("WRITE\n"); break;
-        case OP_READ: printf("READ\n"); break;
-        case OP_NOP: printf("NOP\n"); break;
-        case OP_ADD:
-            reftostr(chunk, bufs[0], i->args[0]);
-            reftostr(chunk, bufs[1], i->args[1]);
-            printf("ADD %s, %s\n", bufs[0], bufs[1]);
-            break;
-        case OP_LOAD8:
-            reftostr(chunk, bufs[0], i->args[0]);
-            reftostr(chunk, bufs[1], i->args[1]);
-            printf("LOAD BYTE %s, [%s]\n", bufs[0], bufs[1]);
-            break;
-        case OP_STORE8:
-            reftostr(chunk, bufs[0], i->args[0]);
-            reftostr(chunk, bufs[1], i->args[1]);
-            printf("STORE BYTE %s, [%s]\n", bufs[0], bufs[1]);
-            break;
-        case OP_JMP:
-            reftostr(chunk, bufs[0], i->args[0]);
-            printf("JMP %s\n", bufs[0]);
-            break;
-        case OP_CJMP:
-            reftostr(chunk, bufs[0], i->args[0]);
-            reftostr(chunk, bufs[1], i->args[1]);
-            printf("CJMP %s, %s\n", bufs[0], bufs[1]);
-            break;
-        case OP_NOT:
-            reftostr(chunk, bufs[0], i->args[0]);
-            printf("NOT %s\n", bufs[0]);
-            break;
-        default: printf("???\n"); break;
-        }
+        printins(chunk, &blk->ins[ip]);
     }
 }
 

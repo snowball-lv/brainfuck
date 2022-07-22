@@ -36,6 +36,10 @@ typedef struct {
 } Cons;
 
 typedef struct {
+    int reg;
+} Tmp;
+
+typedef struct {
     Ins *ins;
     int inscnt;
     int lbl;
@@ -45,6 +49,7 @@ typedef struct {
     Block *blocks;
     int blkcnt;
     Block *curblk;
+    Tmp *tmps;
     int tmpcnt;
     Cons *cons;
     int conscnt;
@@ -75,3 +80,4 @@ Ins icjmp(Ref src, Ref lbl);
 Ins inot(Ref tmp);
 
 void printchunk(Chunk *chunk);
+void printins(Chunk *chunk, Ins *i);
