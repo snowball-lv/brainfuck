@@ -4,7 +4,7 @@ enum {
     OP_NONE,
     OP_WRITE, OP_READ,
     OP_ADD,
-    OP_LOAD, OP_STORE,
+    OP_LOAD8, OP_STORE8,
     OP_JMP, OP_CJMP,
     OP_NOT,
     OP_NOP,
@@ -67,8 +67,8 @@ void emitins(Block *blk, Ins ins);
 void erase(Block *blk, int pos, int cnt);
 void insert(Block *blk, int pos, Ins *ins, int cnt);
 
-Ins iload(Ref dst, Ref src);
-Ins istore(Ref dst, Ref src);
+Ins iload8(Ref dst, Ref src);
+Ins istore8(Ref dst, Ref src);
 Ins iadd(Ref dst, Ref src);
 Ins ijmp(Ref lbl);
 Ins icjmp(Ref src, Ref lbl);

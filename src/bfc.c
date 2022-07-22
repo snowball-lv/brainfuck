@@ -1,3 +1,4 @@
+#include <brainfuck/ir.h>
 #include <brainfuck/brainfuck.h>
 
 void interpretc(char *src) {

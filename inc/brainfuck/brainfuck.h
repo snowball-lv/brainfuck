@@ -7,3 +7,7 @@ void interpretc(char *src);
 void interpretasm(char *src);
 void interpretir(char *src);
 void gennasm(char *src);
+void genirnasm(char *src);
+
+void bftoir(Chunk *chunk, char *src);
+

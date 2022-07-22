@@ -72,12 +72,12 @@ void insert(Block *blk, int pos, Ins *ins, int cnt) {
     memmove(&blk->ins[pos], ins, cnt * sizeof(Ins));
 }
 
-Ins iload(Ref dst, Ref src) {
-    return (Ins){.op = OP_LOAD, .args = {dst, src}};
+Ins iload8(Ref dst, Ref src) {
+    return (Ins){.op = OP_LOAD8, .args = {dst, src}};
 }
 
-Ins istore(Ref dst, Ref src) {
-    return (Ins){.op = OP_STORE, .args = {dst, src}};
+Ins istore8(Ref dst, Ref src) {
+    return (Ins){.op = OP_STORE8, .args = {dst, src}};
 }
 
 Ins iadd(Ref dst, Ref src) {
@@ -121,15 +121,15 @@ static void printblock(Chunk *chunk, Block *blk) {
             reftostr(chunk, bufs[1], i->args[1]);
             printf("ADD %s, %s\n", bufs[0], bufs[1]);
             break;
-        case OP_LOAD:
+        case OP_LOAD8:
             reftostr(chunk, bufs[0], i->args[0]);
             reftostr(chunk, bufs[1], i->args[1]);
-            printf("LOAD %s, [%s]\n", bufs[0], bufs[1]);
+            printf("LOAD BYTE %s, [%s]\n", bufs[0], bufs[1]);
             break;
-        case OP_STORE:
+        case OP_STORE8:
             reftostr(chunk, bufs[0], i->args[0]);
             reftostr(chunk, bufs[1], i->args[1]);
-            printf("STORE %s, [%s]\n", bufs[0], bufs[1]);
+            printf("STORE BYTE %s, [%s]\n", bufs[0], bufs[1]);
             break;
         case OP_JMP:
             reftostr(chunk, bufs[0], i->args[0]);

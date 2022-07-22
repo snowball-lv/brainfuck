@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
+#include <brainfuck/brainfuck.h>
 
 static Block *findblk(Chunk *chunk, int lbl) {
     for (int i = 0; i < chunk->blkcnt; i++)
@@ -27,12 +27,12 @@ static void runir(Chunk *chunk) {
             assert(isrefint(chunk, i->args[1]));
             tmps[i->args[0].val] += chunk->cons[i->args[1].val].as.int_;
             break;
-        case OP_LOAD:
+        case OP_LOAD8:
             assert(isreftmp(i->args[0]));
             assert(isreftmp(i->args[1]));
             tmps[i->args[0].val] = data[tmps[i->args[1].val]];
             break;
-        case OP_STORE:
+        case OP_STORE8:
             assert(isreftmp(i->args[0]));
             assert(isreftmp(i->args[1]));
             data[tmps[i->args[1].val]] = tmps[i->args[0].val];
@@ -85,16 +85,16 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             break;
         case '+': {
             int tmp = newtmp(chunk);
-            emit(chunk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emit(chunk, iload8(reftmp(tmp), reftmp(chunk->dptmpid)));
             emit(chunk, iadd(reftmp(tmp), refcons(newint(chunk, 1))));
-            emit(chunk, istore(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emit(chunk, istore8(reftmp(tmp), reftmp(chunk->dptmpid)));
             break;
         }
         case '-': {
             int tmp = newtmp(chunk);
-            emit(chunk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emit(chunk, iload8(reftmp(tmp), reftmp(chunk->dptmpid)));
             emit(chunk, iadd(reftmp(tmp), refcons(newint(chunk, -1))));
-            emit(chunk, istore(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emit(chunk, istore8(reftmp(tmp), reftmp(chunk->dptmpid)));
             break;
         }
         case '.': emit(chunk, (Ins){OP_WRITE}); break;
@@ -104,7 +104,7 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             int startlbl = newlbl(chunk);
             int endlbl = newlbl(chunk);
             // emit head
-            emit(chunk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emit(chunk, iload8(reftmp(tmp), reftmp(chunk->dptmpid)));
             emit(chunk, inot(reftmp(tmp)));
             emit(chunk, icjmp(reftmp(tmp), reflbl(endlbl)));
             // finish the block with a jump to the next one
@@ -115,7 +115,7 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             // emit enclosed code
             ip = _genir(chunk, src, ip + 1);
             // emit tail
-            emit(chunk, iload(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emit(chunk, iload8(reftmp(tmp), reftmp(chunk->dptmpid)));
             emit(chunk, icjmp(reftmp(tmp), reflbl(startlbl)));
             // finish the block with a jump to the next one
             emit(chunk, ijmp(reflbl(endlbl)));
@@ -130,7 +130,7 @@ static int _genir(Chunk *chunk, char *src, int ip) {
     return ip;
 }
 
-static void genir(Chunk *chunk, char *src) {
+void bftoir(Chunk *chunk, char *src) {
     pushblk(chunk);
     chunk->dptmpid = newtmp(chunk);
     _genir(chunk, src, 0);
@@ -138,7 +138,7 @@ static void genir(Chunk *chunk, char *src) {
 
 void interpretir(char *src) {
     Chunk chunk = {0};
-    genir(&chunk, src);
+    bftoir(&chunk, src);
     // printchunk(&chunk);
     runir(&chunk);
 }
