@@ -75,28 +75,36 @@ void insert(Block *blk, int pos, Ins *ins, int cnt) {
     memmove(&blk->ins[pos], ins, cnt * sizeof(Ins));
 }
 
+#define BIT(n) (1 << (n))
+
 Ins iload8(Ref dst, Ref src) {
-    return (Ins){.op = OP_LOAD8, .args = {dst, src}};
+    return (Ins){.op = OP_LOAD8, .args = {dst, src},
+            .use = BIT(1), .def = BIT(0)};
 }
 
 Ins istore8(Ref dst, Ref src) {
-    return (Ins){.op = OP_STORE8, .args = {dst, src}};
+    return (Ins){.op = OP_STORE8, .args = {dst, src},
+            .use = BIT(0) | BIT(1), .def = 0};
 }
 
 Ins iadd(Ref dst, Ref src) {
-    return (Ins){.op = OP_ADD, .args = {dst, src}};
+    return (Ins){.op = OP_ADD, .args = {dst, src},
+            .use = BIT(0) | BIT(1), .def = BIT(0)};
 }
 
-Ins icjmp(Ref src, Ref lbl) {
-    return (Ins){.op = OP_CJMP, .args = {src, lbl}};
+Ins icjmp(Ref cnd, Ref lbl) {
+    return (Ins){.op = OP_CJMP, .args = {cnd, lbl},
+            .use = BIT(0), .def = 0};
 }
 
 Ins ijmp(Ref lbl) {
-    return (Ins){.op = OP_JMP, .args = {lbl}};
+    return (Ins){.op = OP_JMP, .args = {lbl},
+            .use = 0, .def = 0};
 }
 
 Ins inot(Ref tmp) {
-    return (Ins){.op = OP_NOT, .args = {tmp}};
+    return (Ins){.op = OP_NOT, .args = {tmp},
+            .use = BIT(0), .def = BIT(0)};
 }
 
 static void reftostr(Chunk *chunk, char *buf, Ref r) {
@@ -128,7 +136,7 @@ void printins(Chunk *chunk, Ins *i) {
     case OP_STORE8:
         reftostr(chunk, bufs[0], i->args[0]);
         reftostr(chunk, bufs[1], i->args[1]);
-        printf("STORE BYTE %s, [%s]\n", bufs[0], bufs[1]);
+        printf("STORE BYTE [%s], %s\n", bufs[0], bufs[1]);
         break;
     case OP_JMP:
         reftostr(chunk, bufs[0], i->args[0]);

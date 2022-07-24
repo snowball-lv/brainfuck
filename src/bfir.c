@@ -35,7 +35,7 @@ static void runir(Chunk *chunk) {
         case OP_STORE8:
             assert(isreftmp(i->args[0]));
             assert(isreftmp(i->args[1]));
-            data[tmps[i->args[1].val]] = tmps[i->args[0].val];
+            data[tmps[i->args[0].val]] = tmps[i->args[1].val];
             break;
         case OP_JMP: {
             blk = findblk(chunk, i->args[0].val);
@@ -74,27 +74,20 @@ static int _genir(Chunk *chunk, char *src, int ip) {
     for (; src[ip]; ip++) {
         switch (src[ip]) {
         case '<':
+        case '>': {
+            int val = src[ip] == '<' ? -1 : 1;
             emit(chunk, iadd(
                     reftmp(chunk->dptmpid),
-                    refcons(newint(chunk, -1))));
-            break;
-        case '>':
-            emit(chunk, iadd(
-                    reftmp(chunk->dptmpid),
-                    refcons(newint(chunk, 1))));
-            break;
-        case '+': {
-            int tmp = newtmp(chunk);
-            emit(chunk, iload8(reftmp(tmp), reftmp(chunk->dptmpid)));
-            emit(chunk, iadd(reftmp(tmp), refcons(newint(chunk, 1))));
-            emit(chunk, istore8(reftmp(tmp), reftmp(chunk->dptmpid)));
+                    refcons(newint(chunk, val))));
             break;
         }
-        case '-': {
+        case '-':
+        case '+': {
+            int val = src[ip] == '-' ? -1 : 1;
             int tmp = newtmp(chunk);
             emit(chunk, iload8(reftmp(tmp), reftmp(chunk->dptmpid)));
-            emit(chunk, iadd(reftmp(tmp), refcons(newint(chunk, -1))));
-            emit(chunk, istore8(reftmp(tmp), reftmp(chunk->dptmpid)));
+            emit(chunk, iadd(reftmp(tmp), refcons(newint(chunk, val))));
+            emit(chunk, istore8(reftmp(chunk->dptmpid), reftmp(tmp)));
             break;
         }
         case '.': emit(chunk, (Ins){OP_WRITE}); break;

@@ -66,8 +66,8 @@ static void genblk(Chunk *chunk, Block *blk) {
             break;
         case OP_STORE8:
             printf("mov byte [%s], %s\n",
-                    rstr(tmpr(chunk, i->args[1].val)),
-                    rstrb(tmpr(chunk, i->args[0].val)));
+                    rstr(tmpr(chunk, i->args[0].val)),
+                    rstrb(tmpr(chunk, i->args[1].val)));
             break;
         case OP_NOT: {
             printf("cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));

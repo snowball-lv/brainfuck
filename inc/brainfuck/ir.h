@@ -23,6 +23,7 @@ typedef struct {
 typedef struct {
     int op;
     Ref args[2];
+    char use, def;
 } Ins;
 
 typedef struct {
@@ -76,7 +77,7 @@ Ins iload8(Ref dst, Ref src);
 Ins istore8(Ref dst, Ref src);
 Ins iadd(Ref dst, Ref src);
 Ins ijmp(Ref lbl);
-Ins icjmp(Ref src, Ref lbl);
+Ins icjmp(Ref cnd, Ref lbl);
 Ins inot(Ref tmp);
 
 void printchunk(Chunk *chunk);
