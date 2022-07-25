@@ -11,6 +11,8 @@ int newblk(Chunk *chunk) {
 }
 
 int newlbl(Chunk *chunk) {
+    // make label 0 invalid
+    if (!chunk->lblcnt) chunk->lblcnt++;
     return chunk->lblcnt++;
 }
 
@@ -156,7 +158,22 @@ void printins(Chunk *chunk, Ins *i) {
 }
 
 static void printblock(Chunk *chunk, Block *blk) {
-    printf("Block @L%i\n", blk->lbl);
+    printf("Block @L%i ->", blk->lbl);
+    if (blk->outlbls[0]) printf(" @L%i", blk->outlbls[0]);
+    if (blk->outlbls[1]) printf(" @L%i", blk->outlbls[1]);
+    printf("\n");
+    if (blk->livein) {
+        printf("Live in");
+        for (int tmp = 0; tmp < chunk->tmpcnt; tmp++)
+            if (blk->livein[tmp]) printf(" $%i", tmp);
+        printf("\n");
+    }
+    if (blk->liveout) {
+        printf("Live out");
+        for (int tmp = 0; tmp < chunk->tmpcnt; tmp++)
+            if (blk->liveout[tmp]) printf(" $%i", tmp);
+        printf("\n");
+    }
     for (int ip = 0; ip < blk->inscnt; ip++) {
         printf("%3i: ", ip);
         printins(chunk, &blk->ins[ip]);
@@ -166,4 +183,58 @@ static void printblock(Chunk *chunk, Block *blk) {
 void printchunk(Chunk *chunk) {
     for (int i = 0; i < chunk->blkcnt; i++)
         printblock(chunk, &chunk->blocks[i]);
+}
+
+Block *findblk(Chunk *chunk, int lbl) {
+    for (int i = 0; i < chunk->blkcnt; i++)
+        if (chunk->blocks[i].lbl == lbl) return &chunk->blocks[i];
+    return 0;
+}
+
+static void setunion(char *dst, char *src, int cnt) {
+    for (int i = 0; i < cnt; i++)
+        dst[i] = dst[i] || src[i];
+}
+
+#define DEF(n) ((i->def & BIT((n))) && isreftmp(i->args[(n)]))
+#define USE(n) ((i->use & BIT((n))) && isreftmp(i->args[(n)]))
+#define TMP(n) (i->args[(n)].val)
+
+static int blkliveness(Chunk *chunk, Block *blk) {
+    int change = 0;
+    char *set = malloc(chunk->tmpcnt);
+    memcpy(set, blk->liveout, chunk->tmpcnt);
+    for (int i = 0; i < 2; i++) {
+        if (!blk->outlbls[i]) continue;
+        Block *outblk = findblk(chunk, blk->outlbls[i]);
+        setunion(blk->liveout, outblk->livein, chunk->tmpcnt);
+    }
+    change = memcmp(set, blk->liveout, chunk->tmpcnt);
+    memcpy(set, blk->liveout, chunk->tmpcnt);
+    for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
+        Ins *i = &blk->ins[ip];
+        if (DEF(0)) set[TMP(0)] = 0;
+        if (DEF(1)) set[TMP(1)] = 0;
+        if (USE(0)) set[TMP(0)] = 1;
+        if (USE(1)) set[TMP(1)] = 1;
+    }
+    change |= memcmp(set, blk->livein, chunk->tmpcnt);
+    memcpy(blk->livein, set, chunk->tmpcnt);
+    free(set);
+    return change;
+}
+
+void liveness(Chunk *chunk) {
+    for (int bi = 0; bi < chunk->blkcnt; bi++) {
+        Block *blk = &chunk->blocks[bi];
+        blk->livein = malloc(chunk->tmpcnt);
+        blk->liveout = malloc(chunk->tmpcnt);
+        memset(blk->livein, 0, chunk->tmpcnt);
+        memset(blk->liveout, 0, chunk->tmpcnt);
+    }
+again:
+    for (int bi = 0; bi < chunk->blkcnt; bi++) {
+        Block *blk = &chunk->blocks[bi];
+        if (blkliveness(chunk, blk)) goto again;
+    }
 }

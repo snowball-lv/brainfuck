@@ -44,6 +44,8 @@ typedef struct {
     Ins *ins;
     int inscnt;
     int lbl;
+    int outlbls[2];
+    char *livein, *liveout;
 } Block;
 
 typedef struct {
@@ -82,3 +84,6 @@ Ins inot(Ref tmp);
 
 void printchunk(Chunk *chunk);
 void printins(Chunk *chunk, Ins *i);
+
+void liveness(Chunk *chunk);
+Block *findblk(Chunk *chunk, int lbl);

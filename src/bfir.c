@@ -5,12 +5,6 @@
 #include <brainfuck/ir.h>
 #include <brainfuck/brainfuck.h>
 
-static Block *findblk(Chunk *chunk, int lbl) {
-    for (int i = 0; i < chunk->blkcnt; i++)
-        if (chunk->blocks[i].lbl == lbl) return &chunk->blocks[i];
-    return 0;
-}
-
 static void runir(Chunk *chunk) {
     char data[30000] = {0};
     int *tmps = malloc(chunk->tmpcnt * sizeof(int));
@@ -102,6 +96,8 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             emit(chunk, icjmp(reftmp(tmp), reflbl(endlbl)));
             // finish the block with a jump to the next one
             emit(chunk, ijmp(reflbl(startlbl)));
+            chunk->curblk->outlbls[0] = endlbl;
+            chunk->curblk->outlbls[1] = startlbl;
             // create new block
             pushblk(chunk);
             chunk->curblk->lbl = startlbl;
@@ -112,6 +108,8 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             emit(chunk, icjmp(reftmp(tmp), reflbl(startlbl)));
             // finish the block with a jump to the next one
             emit(chunk, ijmp(reflbl(endlbl)));
+            chunk->curblk->outlbls[0] = startlbl;
+            chunk->curblk->outlbls[1] = endlbl;
             // create new block
             pushblk(chunk);
             chunk->curblk->lbl = endlbl;

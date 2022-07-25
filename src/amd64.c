@@ -121,6 +121,7 @@ static void color(Chunk *chunk) {
 }
 
 void amd64gen(Chunk *chunk) {
+    liveness(chunk);
     color(chunk);
     printf("bits 64\n");
     printf("extern putchar\n");
@@ -131,8 +132,9 @@ void amd64gen(Chunk *chunk) {
     printf("push rbp\n");
     printf("mov rbp, rsp\n");
     printf("\n");
-    // printchunk(chunk);
-    // printf("\n");
+    printf("%%if 0\n");
+    printchunk(chunk);
+    printf("%%endif\n\n");
     genchunk(chunk);
     printf("\n");
     printf("mov rsp, rbp\n");
