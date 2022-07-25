@@ -238,3 +238,23 @@ again:
         if (blkliveness(chunk, blk)) goto again;
     }
 }
+
+void interferes(Chunk *chunk, char *set, int tmp) {
+    char *live = malloc(chunk->tmpcnt);
+    for (int bi = 0; bi < chunk->blkcnt; bi++) {
+        Block *blk = &chunk->blocks[bi];
+        memcpy(live, blk->liveout, chunk->tmpcnt);
+        if (live[tmp]) setunion(set, live, chunk->tmpcnt);
+        for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
+            Ins *i = &blk->ins[ip];
+            if (DEF(0)) live[TMP(0)] = 0;
+            if (DEF(1)) live[TMP(1)] = 0;
+            if (USE(0)) live[TMP(0)] = 1;
+            if (USE(1)) live[TMP(1)] = 1;
+            if (live[tmp]) setunion(set, live, chunk->tmpcnt);
+        }
+    }
+    free(live);
+    // don't interfere with yourself
+    set[tmp] = 0;
+}

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include <brainfuck/ir.h>
 #include <brainfuck/amd64.h>
@@ -108,16 +109,34 @@ static void genchunk(Chunk *chunk) {
         printf("mov %s, [rbp - %i]\n", rstr(r), (r - R_R12 + 1) * 8);
 }
 
+static int allregs() {
+    int all = 0;
+    for (int r = R_R12; r < R_MAX; r++)
+        all |= 1 << r;
+    return all;
+}
+
 static void color(Chunk *chunk) {
-    int reg = R_R12;
-    for (int i = 0; i < chunk->tmpcnt; i++) {
-        if (reg >= R_MAX) {
-            printf("*** out of registers\n");
+    char *set = malloc(chunk->tmpcnt);
+    for (int tmp = 0; tmp < chunk->tmpcnt; tmp++) {
+        int freeregs = allregs();
+        memset(set, 0, chunk->tmpcnt);
+        interferes(chunk, set, tmp);
+        for (int i = 0; i < chunk->tmpcnt; i++) {
+            if (!set[i]) continue;
+            printf("; $%i -- $%i\n", tmp, i);
+            if (!chunk->tmps[i].reg) continue;
+            freeregs &= ~(1 << chunk->tmps[i].reg);
+        }
+        if (!freeregs) {
+            printf("*** spill $%i\n", tmp);
             exit(1);
         }
-        chunk->tmps[i].reg = reg;
-        reg++;
+        int reg = __builtin_ctz(freeregs);
+        chunk->tmps[tmp].reg = reg;
+        printf("; $%i = %s\n", tmp, rstr(reg));
     }
+    free(set);
 }
 
 void amd64gen(Chunk *chunk) {

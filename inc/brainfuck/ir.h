@@ -87,3 +87,4 @@ void printins(Chunk *chunk, Ins *i);
 
 void liveness(Chunk *chunk);
 Block *findblk(Chunk *chunk, int lbl);
+void interferes(Chunk *chunk, char *set, int tmp);
