@@ -39,7 +39,14 @@ static char *rstrb(int reg) {
     return "???";
 }
 
+static void reftostr(Chunk *chunk, char *buf, Ref r) {
+    sprintf(buf, "[???]");
+    if (isreftmp(r)) sprintf(buf, "%s", rstr(tmpr(chunk, r.val)));
+    if (isrefint(chunk, r)) sprintf(buf, "%i", chunk->cons[r.val].as.int_);
+}
+
 static void genblk(Chunk *chunk, Block *blk) {
+    char bufs[2][16];
     printf(".L%i:\n", blk->lbl);
     for (int ip = 0; ip < blk->inscnt; ip++) {
         Ins *i = &blk->ins[ip];
@@ -55,9 +62,9 @@ static void genblk(Chunk *chunk, Block *blk) {
             break;
         case OP_ADD: {
             assert(isreftmp(i->args[0]));
-            assert(isrefint(chunk, i->args[1]));
-            int cons = chunk->cons[i->args[1].val].as.int_;
-            printf("add %s, %i\n", rstr(tmpr(chunk, i->args[0].val)), cons);
+            // assert(isrefint(chunk, i->args[1]));
+            reftostr(chunk, bufs[1], i->args[1]);
+            printf("add %s, %s\n", rstr(tmpr(chunk, i->args[0].val)), bufs[1]);
             break;
         }
         case OP_LOAD8:
@@ -82,6 +89,21 @@ static void genblk(Chunk *chunk, Block *blk) {
         case OP_JMP:
             printf("jmp .L%i\n",  i->args[0].val);
             break;
+        case OP_ALLOC: {
+            assert(isreftmp(i->args[0]));
+            assert(isrefint(chunk, i->args[1]));
+            int size = chunk->cons[i->args[1].val].as.int_;
+            int slots = (size + 15) / 16;
+            printf("sub rsp, %i * %i\n", slots, 16);
+            printf("mov %s, rsp\n", rstr(tmpr(chunk, i->args[0].val)));
+            break;
+        }
+        case OP_MOV: {
+            assert(isreftmp(i->args[0]));
+            reftostr(chunk, bufs[1], i->args[1]);
+            printf("mov %s, %s\n", rstr(tmpr(chunk, i->args[0].val)), bufs[1]);
+            break;
+        }
         default:
             printf("*** can't generate op [%i]\n", i->op);
             exit(1);
@@ -95,13 +117,6 @@ static void genchunk(Chunk *chunk) {
     printf("sub rsp, %i\n", slots * 16);
     for (int r = R_R12; r < R_MAX; r++)
         printf("mov [rbp - %i], %s\n", (r - R_R12 + 1) * 8, rstr(r));
-    printf("; reserve and zero bf data area\n");
-    printf("mov rcx, 16 * 1875\n");
-    printf(".zerodata:\n");
-    printf("dec rsp\n");
-    printf("mov byte [rsp], 0\n");
-    printf("loop .zerodata\n");
-    printf("mov %s, rsp\n", rstr(tmpr(chunk, chunk->dptmpid)));
     for (int i = 0; i < chunk->blkcnt; i++)
         genblk(chunk, &chunk->blocks[i]);
     printf("; restore registers\n");

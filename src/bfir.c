@@ -121,9 +121,38 @@ static int _genir(Chunk *chunk, char *src, int ip) {
     return ip;
 }
 
+// reserve and zero bf data area
+static void zerodata(Chunk *chunk) {
+    int counter = newtmp(chunk);
+    int loop = newlbl(chunk);
+    int end = newlbl(chunk);
+    int ptr = newtmp(chunk);
+    int zero = newtmp(chunk);
+    emit(chunk, ialloc(reftmp(chunk->dptmpid), refcons(newint(chunk, 30000))));
+    emit(chunk, imov(reftmp(counter), refcons(newint(chunk, 30000))));
+    emit(chunk, ijmp(reflbl(loop)));
+    chunk->curblk->outlbls[0] = loop;
+    // loop body
+    pushblk(chunk);
+    chunk->curblk->lbl = loop;
+    emit(chunk, iadd(reftmp(counter), refcons(newint(chunk, -1))));
+    emit(chunk, imov(reftmp(ptr), reftmp(chunk->dptmpid)));
+    emit(chunk, iadd(reftmp(ptr), reftmp(counter)));
+    emit(chunk, imov(reftmp(zero), refcons(newint(chunk, 0))));
+    emit(chunk, istore8(reftmp(ptr), reftmp(zero)));
+    emit(chunk, icjmp(reftmp(counter), reflbl(loop)));
+    emit(chunk, ijmp(reflbl(end)));
+    chunk->curblk->outlbls[0] = loop;
+    chunk->curblk->outlbls[1] = end;
+    // loop end
+    pushblk(chunk);
+    chunk->curblk->lbl = end;
+}
+
 void bftoir(Chunk *chunk, char *src) {
     pushblk(chunk);
     chunk->dptmpid = newtmp(chunk);
+    zerodata(chunk);
     _genir(chunk, src, 0);
 }
 

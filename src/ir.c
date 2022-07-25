@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include <brainfuck/ir.h>
 
 int newblk(Chunk *chunk) {
@@ -53,8 +54,12 @@ int isreftmp(Ref r) {
     return r.type == REF_TMP;
 }
 
+int isrefcons(Ref r) {
+    return r.type == REF_CONS;
+}
+
 int isrefint(Chunk *chunk, Ref r) {
-    return r.type == REF_CONS && chunk->cons[r.val].type == CONS_INT;
+    return isrefcons(r) && chunk->cons[r.val].type == CONS_INT;
 }
 
 void emitins(Block *blk, Ins ins) {
@@ -80,21 +85,28 @@ void insert(Block *blk, int pos, Ins *ins, int cnt) {
 #define BIT(n) (1 << (n))
 
 Ins iload8(Ref dst, Ref src) {
+    assert(isreftmp(dst));
+    assert(isreftmp(src));
     return (Ins){.op = OP_LOAD8, .args = {dst, src},
             .use = BIT(1), .def = BIT(0)};
 }
 
 Ins istore8(Ref dst, Ref src) {
+    assert(isreftmp(dst));
+    assert(isreftmp(src));
     return (Ins){.op = OP_STORE8, .args = {dst, src},
             .use = BIT(0) | BIT(1), .def = 0};
 }
 
 Ins iadd(Ref dst, Ref src) {
+    assert(isreftmp(dst));
+    // assert(isreftmp(src));
     return (Ins){.op = OP_ADD, .args = {dst, src},
             .use = BIT(0) | BIT(1), .def = BIT(0)};
 }
 
 Ins icjmp(Ref cnd, Ref lbl) {
+    assert(isreftmp(cnd));
     return (Ins){.op = OP_CJMP, .args = {cnd, lbl},
             .use = BIT(0), .def = 0};
 }
@@ -105,8 +117,22 @@ Ins ijmp(Ref lbl) {
 }
 
 Ins inot(Ref tmp) {
+    assert(isreftmp(tmp));
     return (Ins){.op = OP_NOT, .args = {tmp},
             .use = BIT(0), .def = BIT(0)};
+}
+
+Ins ialloc(Ref dst, Ref size) {
+    assert(isreftmp(dst));
+    assert(isrefcons(size));
+    return (Ins){.op = OP_ALLOC, .args = {dst, size},
+            .use = 0, .def = BIT(0)};
+}
+
+Ins imov(Ref dst, Ref src) {
+    assert(isreftmp(dst));
+    return (Ins){.op = OP_MOV, .args = {dst, src},
+            .use = BIT(1), .def = BIT(0)};
 }
 
 static void reftostr(Chunk *chunk, char *buf, Ref r) {
@@ -152,6 +178,16 @@ void printins(Chunk *chunk, Ins *i) {
     case OP_NOT:
         reftostr(chunk, bufs[0], i->args[0]);
         printf("NOT %s\n", bufs[0]);
+        break;
+    case OP_ALLOC:
+        reftostr(chunk, bufs[0], i->args[0]);
+        reftostr(chunk, bufs[1], i->args[1]);
+        printf("ALLOC %s, %s\n", bufs[0], bufs[1]);
+        break;
+    case OP_MOV:
+        reftostr(chunk, bufs[0], i->args[0]);
+        reftostr(chunk, bufs[1], i->args[1]);
+        printf("MOV %s, %s\n", bufs[0], bufs[1]);
         break;
     default: printf("???\n"); break;
     }
@@ -247,6 +283,16 @@ void interferes(Chunk *chunk, char *set, int tmp) {
         if (live[tmp]) setunion(set, live, chunk->tmpcnt);
         for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
             Ins *i = &blk->ins[ip];
+            // kludge. defined but unused temporaries
+            // never appear in the live set.
+            // find correct algo to handle this
+            if (live[tmp]) {
+                if (DEF(0)) set[TMP(0)] = 1;
+                if (DEF(1)) set[TMP(1)] = 1;
+            }
+            if (DEF(0) && (TMP(0) == tmp)) setunion(set, live, chunk->tmpcnt);
+            if (DEF(1) && (TMP(1) == tmp)) setunion(set, live, chunk->tmpcnt);
+            // update live set
             if (DEF(0)) live[TMP(0)] = 0;
             if (DEF(1)) live[TMP(1)] = 0;
             if (USE(0)) live[TMP(0)] = 1;

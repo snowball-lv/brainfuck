@@ -8,6 +8,8 @@ enum {
     OP_JMP, OP_CJMP,
     OP_NOT,
     OP_NOP,
+    OP_ALLOC,
+    OP_MOV,
 };
 
 typedef struct {
@@ -81,6 +83,8 @@ Ins iadd(Ref dst, Ref src);
 Ins ijmp(Ref lbl);
 Ins icjmp(Ref cnd, Ref lbl);
 Ins inot(Ref tmp);
+Ins ialloc(Ref dst, Ref size);
+Ins imov(Ref dst, Ref src);
 
 void printchunk(Chunk *chunk);
 void printins(Chunk *chunk, Ins *i);
