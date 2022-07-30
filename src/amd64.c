@@ -137,12 +137,15 @@ static void color(Chunk *chunk) {
         int freeregs = allregs();
         memset(set, 0, chunk->tmpcnt);
         interferes(chunk, set, tmp);
+        printf("; $%i", tmp);
         for (int i = 0; i < chunk->tmpcnt; i++) {
             if (!set[i]) continue;
-            printf("; $%i -- $%i\n", tmp, i);
+            printf(" -- $%i", i);
             if (!chunk->tmps[i].reg) continue;
+            printf("(%s)", rstr(chunk->tmps[i].reg));
             freeregs &= ~(1 << chunk->tmps[i].reg);
         }
+        printf("\n");
         if (!freeregs) {
             printf("*** spill $%i\n", tmp);
             exit(1);
