@@ -143,6 +143,10 @@ Ins icall(Ref name) {
     return (Ins){.op = OP_CALL, .args = {name}};
 }
 
+Ins iscratch() {
+    return (Ins){.op = OP_SCRATCH};
+}
+
 static void reftostr(Chunk *chunk, char *buf, Ref r) {
     sprintf(buf, "[???]");
     if (r.type == REF_TMP) sprintf(buf, "$%i", r.val);
@@ -197,6 +201,9 @@ void printins(Chunk *chunk, Ins *i) {
         reftostr(chunk, bufs[0], i->dst);
         reftostr(chunk, bufs[1], i->args[0]);
         printf("%s = %s\n", bufs[0], bufs[1]);
+        break;
+    case OP_SCRATCH:
+        printf("SCRATCH\n");
         break;
     case OP_CALL:
         reftostr(chunk, bufs[0], i->args[0]);
@@ -262,9 +269,27 @@ static int blkliveness(Chunk *chunk, Block *blk) {
     memcpy(set, blk->liveout, chunk->tmpcnt);
     for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
         Ins *i = &blk->ins[ip];
+        // def
         if (isreftmp(i->dst)) set[i->dst.val] = 0;
+        if (i->op == OP_CALL || i->op == OP_SCRATCH) {
+            Target *t = chunk->target;
+            for (int i = 0; i < t->nscratch; i++) {
+                int r = t->scratch[i];
+                int tmp = t->rtmps[r];
+                set[tmp] = 0;
+            }
+        }
+        // use
         if (isreftmp(i->args[0])) set[i->args[0].val] = 1;
         if (isreftmp(i->args[1])) set[i->args[1].val] = 1;
+        if (i->op == OP_CALL) {
+            Target *t = chunk->target;
+            for (int i = 0; i < t->nparams; i++) {
+                int r = t->params[i];
+                int tmp = t->rtmps[r];
+                set[tmp] = 1;
+            }
+        }
     }
     change |= memcmp(set, blk->livein, chunk->tmpcnt);
     memcpy(blk->livein, set, chunk->tmpcnt);
@@ -295,13 +320,36 @@ void interferes(Chunk *chunk, char *set, int tmp) {
         if (live[tmp]) setunion(set, live, chunk->tmpcnt);
         for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
             Ins *i = &blk->ins[ip];
-            // add defined tmp to lvie set
+            // add defined tmps to live set
             if (isreftmp(i->dst)) live[i->dst.val] = 1;
+            if (i->op == OP_CALL || i->op == OP_SCRATCH) {
+                for (int i = 0; i < chunk->target->nscratch; i++) {
+                    int r = chunk->target->scratch[i];
+                    int tmp = chunk->target->rtmps[r];
+                    live[tmp] = 1;
+                }
+            }
             if (live[tmp]) setunion(set, live, chunk->tmpcnt);
             // update live set
+            // def
             if (isreftmp(i->dst)) live[i->dst.val] = 0;
+            if (i->op == OP_CALL || i->op == OP_SCRATCH) {
+                for (int i = 0; i < chunk->target->nscratch; i++) {
+                    int r = chunk->target->scratch[i];
+                    int tmp = chunk->target->rtmps[r];
+                    live[tmp] = 0;
+                }
+            }
+            // use
             if (isreftmp(i->args[0])) live[i->args[0].val] = 1;
             if (isreftmp(i->args[1])) live[i->args[1].val] = 1;
+            if (i->op == OP_CALL) {
+                for (int i = 0; i < chunk->target->nparams; i++) {
+                    int r = chunk->target->params[i];
+                    int tmp = chunk->target->rtmps[r];
+                    live[tmp] = 1;
+                }
+            }
             if (live[tmp]) setunion(set, live, chunk->tmpcnt);
         }
     }

@@ -10,6 +10,7 @@ enum {
     OP_ALLOC,
     OP_MOV,
     OP_CALL,
+    OP_SCRATCH,
 };
 
 typedef struct {
@@ -53,6 +54,17 @@ typedef struct {
 } Block;
 
 typedef struct {
+    int *ret;
+    int nret;
+    int *params;
+    int nparams;
+    int *scratch;
+    int nscratch;
+    int *rtmps;
+    int nrtmps;
+} Target;
+
+typedef struct {
     Block *blocks;
     int blkcnt;
     Block *curblk;
@@ -62,6 +74,7 @@ typedef struct {
     int conscnt;
     int dptmpid;
     int lblcnt;
+    Target *target;
 } Chunk;
 
 int newblk(Chunk *chunk);
@@ -90,6 +103,7 @@ Ins inot(Ref tmp);
 Ins ialloc(Ref dst, Ref size);
 Ins imov(Ref dst, Ref src);
 Ins icall(Ref name);
+Ins iscratch();
 
 void printchunk(Chunk *chunk);
 void printins(Chunk *chunk, Ins *i);

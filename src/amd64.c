@@ -7,6 +7,18 @@
 
 enum {
     R_NONE,
+    R_RAX,
+    R_RCX,
+    R_RDX,
+    R_RBX,
+    R_RSP,
+    R_RBP,
+    R_RSI,
+    R_RDI,
+    R_R8,
+    R_R9,
+    R_R10,
+    R_R11,
     R_R12,
     R_R13,
     R_R14,
@@ -21,6 +33,18 @@ static int tmpr(Chunk *chunk, int tmp) {
 
 static char *rstr(int reg) {
     switch (reg) {
+    case R_RAX: return "rax";
+    case R_RCX: return "rcx";
+    case R_RDX: return "rdx";
+    case R_RBX: return "rbx";
+    case R_RSP: return "rsp";
+    case R_RBP: return "rbp";
+    case R_RSI: return "rsi";
+    case R_RDI: return "rdi";
+    case R_R8: return "r8";
+    case R_R9: return "r9";
+    case R_R10: return "r10";
+    case R_R11: return "r11";
     case R_R12: return "r12";
     case R_R13: return "r13";
     case R_R14: return "r14";
@@ -46,13 +70,54 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
     if (isrefstr(chunk, r)) sprintf(buf, "%s", chunk->cons[r.val].as.str);
 }
 
+static char *tmptostr(char *buf, Chunk *chunk, int tmp) {
+    char *ptr = buf + sprintf(buf, "$%i", tmp);
+    if (chunk->tmps[tmp].reg)
+        sprintf(ptr, "(%s)", rstr(chunk->tmps[tmp].reg));
+    return buf;
+}
+
+static void printusedef(Chunk *chunk, Ins *i) {
+    char buf[16];
+    printf(";     use:");
+    if (isreftmp(i->args[0])) printf(" %s", tmptostr(buf, chunk, i->args[0].val));
+    if (isreftmp(i->args[1])) printf(" %s", tmptostr(buf, chunk, i->args[1].val));
+    if (i->op == OP_CALL) {
+        for (int i = 0; i < chunk->target->nparams; i++) {
+            int r = chunk->target->params[i];
+            int tmp = chunk->target->rtmps[r];
+            printf(" %s", tmptostr(buf, chunk, tmp));
+        }
+    }
+    printf("\n");
+    printf(";     def:");
+    if (isreftmp(i->dst)) printf(" %s", tmptostr(buf, chunk, i->dst.val));
+    if (i->op == OP_CALL) {
+        for (int i = 0; i < chunk->target->nscratch; i++) {
+            int r = chunk->target->scratch[i];
+            int tmp = chunk->target->rtmps[r];
+            printf(" %s", tmptostr(buf, chunk, tmp));
+        }
+    }
+    else if (i->op == OP_SCRATCH) {
+        for (int i = 0; i < chunk->target->nscratch; i++) {
+            int r = chunk->target->scratch[i];
+            int tmp = chunk->target->rtmps[r];
+            printf(" %s", tmptostr(buf, chunk, tmp));
+        }
+    }
+    printf("\n");
+}
+
 static void genblk(Chunk *chunk, Block *blk) {
     char bufs[3][16];
     printf(".L%i:\n", blk->lbl);
     for (int ip = 0; ip < blk->inscnt; ip++) {
         Ins *i = &blk->ins[ip];
         printf("; "); printins(chunk, i);
+        printusedef(chunk, i);
         switch (i->op) {
+        case OP_SCRATCH: printf("; scratch\n"); break;
         case OP_CALL:
             reftostr(chunk, bufs[0], i->args[0]);
             printf("movzx rdi, byte [%s]\n", rstr(tmpr(chunk, chunk->dptmpid)));
@@ -147,18 +212,37 @@ static void color(Chunk *chunk) {
             freeregs &= ~(1 << chunk->tmps[i].reg);
         }
         printf("\n");
-        if (!freeregs) {
-            printf("*** spill $%i\n", tmp);
-            exit(1);
+        if (!chunk->tmps[tmp].reg) {
+            if (!freeregs) {
+                printf("*** spill $%i\n", tmp);
+                exit(1);
+            }
+            chunk->tmps[tmp].reg = __builtin_ctz(freeregs);
         }
-        int reg = __builtin_ctz(freeregs);
-        chunk->tmps[tmp].reg = reg;
-        printf("; $%i = %s\n", tmp, rstr(reg));
+        printf("; $%i = %s\n", tmp, rstr(chunk->tmps[tmp].reg));
     }
     free(set);
 }
 
+static Target T = {
+    .ret = (int[]){R_RAX, R_RDX},
+    .nret = 2,
+    .params = (int[]){R_RDI, R_RSI, R_RDX, R_RCX, R_R8, R_R9},
+    .nparams = 6,
+    .scratch = (int[]){R_RAX, R_RDI, R_RSI, R_RDX, R_RCX, R_R8, R_R9, R_R10, R_R11},
+    .nscratch = 9,
+};
+
 void amd64gen(Chunk *chunk) {
+    // create pre-colored tmp for each register
+    T.rtmps = malloc(R_MAX * sizeof(int));
+    T.nrtmps = R_MAX;
+    for (int r = 0; r < R_MAX; r++) {
+        int tmp = newtmp(chunk);
+        chunk->tmps[tmp].reg = r;
+        T.rtmps[r] = tmp;
+    }
+    chunk->target = &T;
     liveness(chunk);
     color(chunk);
     printf("bits 64\n");

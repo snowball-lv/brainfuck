@@ -36,9 +36,11 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             break;
         }
         case '.':
+            emit(chunk, iscratch());
             emit(chunk, icall(refcons(newstr(chunk, "putchar"))));
             break;
         case ',':
+            emit(chunk, iscratch());
             emit(chunk, icall(refcons(newstr(chunk, "getchar"))));
             break;
         case '[': {
