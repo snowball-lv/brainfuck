@@ -24,8 +24,8 @@ typedef struct {
 
 typedef struct {
     int op;
+    Ref dst;
     Ref args[2];
-    char use, def;
 } Ins;
 
 typedef struct {

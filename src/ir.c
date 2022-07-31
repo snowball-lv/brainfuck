@@ -98,52 +98,44 @@ void insert(Block *blk, int pos, Ins *ins, int cnt) {
 Ins iload8(Ref dst, Ref src) {
     assert(isreftmp(dst));
     assert(isreftmp(src));
-    return (Ins){.op = OP_LOAD8, .args = {dst, src},
-            .use = BIT(1), .def = BIT(0)};
+    return (Ins){.op = OP_LOAD8, .dst = dst, .args = {src}};
 }
 
 Ins istore8(Ref dst, Ref src) {
     assert(isreftmp(dst));
     assert(isreftmp(src));
-    return (Ins){.op = OP_STORE8, .args = {dst, src},
-            .use = BIT(0) | BIT(1), .def = 0};
+    return (Ins){.op = OP_STORE8, .args = {dst, src}};
 }
 
 Ins iadd(Ref dst, Ref src) {
     assert(isreftmp(dst));
     // assert(isreftmp(src));
-    return (Ins){.op = OP_ADD, .args = {dst, src},
-            .use = BIT(0) | BIT(1), .def = BIT(0)};
+    return (Ins){.op = OP_ADD, .dst = dst, .args = {dst, src}};
 }
 
 Ins icjmp(Ref cnd, Ref lbl) {
     assert(isreftmp(cnd));
-    return (Ins){.op = OP_CJMP, .args = {cnd, lbl},
-            .use = BIT(0), .def = 0};
+    return (Ins){.op = OP_CJMP, .args = {cnd, lbl}};
 }
 
 Ins ijmp(Ref lbl) {
-    return (Ins){.op = OP_JMP, .args = {lbl},
-            .use = 0, .def = 0};
+    return (Ins){.op = OP_JMP, .args = {lbl}};
 }
 
 Ins inot(Ref tmp) {
     assert(isreftmp(tmp));
-    return (Ins){.op = OP_NOT, .args = {tmp},
-            .use = BIT(0), .def = BIT(0)};
+    return (Ins){.op = OP_NOT, .dst = tmp, .args = {tmp}};
 }
 
 Ins ialloc(Ref dst, Ref size) {
     assert(isreftmp(dst));
     assert(isrefcons(size));
-    return (Ins){.op = OP_ALLOC, .args = {dst, size},
-            .use = 0, .def = BIT(0)};
+    return (Ins){.op = OP_ALLOC, .dst = dst, .args = {size}};
 }
 
 Ins imov(Ref dst, Ref src) {
     assert(isreftmp(dst));
-    return (Ins){.op = OP_MOV, .args = {dst, src},
-            .use = BIT(1), .def = BIT(0)};
+    return (Ins){.op = OP_MOV, .dst = dst, .args = {src}};
 }
 
 Ins icall(Ref name) {
@@ -163,23 +155,24 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
 }
 
 void printins(Chunk *chunk, Ins *i) {
-    char bufs[2][16];
+    char bufs[3][16];
     switch (i->op) {
     case OP_NOP: printf("NOP\n"); break;
     case OP_ADD:
-        reftostr(chunk, bufs[0], i->args[0]);
-        reftostr(chunk, bufs[1], i->args[1]);
-        printf("ADD %s, %s\n", bufs[0], bufs[1]);
+        reftostr(chunk, bufs[0], i->dst);
+        reftostr(chunk, bufs[1], i->args[0]);
+        reftostr(chunk, bufs[2], i->args[1]);
+        printf("%s = ADD %s, %s\n", bufs[0], bufs[1], bufs[2]);
         break;
     case OP_LOAD8:
-        reftostr(chunk, bufs[0], i->args[0]);
-        reftostr(chunk, bufs[1], i->args[1]);
-        printf("LOAD BYTE %s, [%s]\n", bufs[0], bufs[1]);
+        reftostr(chunk, bufs[0], i->dst);
+        reftostr(chunk, bufs[1], i->args[0]);
+        printf("%s = LOAD BYTE [%s]\n", bufs[0], bufs[1]);
         break;
     case OP_STORE8:
         reftostr(chunk, bufs[0], i->args[0]);
         reftostr(chunk, bufs[1], i->args[1]);
-        printf("STORE BYTE [%s], %s\n", bufs[0], bufs[1]);
+        printf("[%s] = STORE BYTE %s\n", bufs[0], bufs[1]);
         break;
     case OP_JMP:
         reftostr(chunk, bufs[0], i->args[0]);
@@ -191,18 +184,19 @@ void printins(Chunk *chunk, Ins *i) {
         printf("CJMP %s, %s\n", bufs[0], bufs[1]);
         break;
     case OP_NOT:
-        reftostr(chunk, bufs[0], i->args[0]);
-        printf("NOT %s\n", bufs[0]);
+        reftostr(chunk, bufs[0], i->dst);
+        reftostr(chunk, bufs[1], i->args[0]);
+        printf("%s = NOT %s\n", bufs[0], bufs[1]);
         break;
     case OP_ALLOC:
-        reftostr(chunk, bufs[0], i->args[0]);
-        reftostr(chunk, bufs[1], i->args[1]);
-        printf("ALLOC %s, %s\n", bufs[0], bufs[1]);
+        reftostr(chunk, bufs[0], i->dst);
+        reftostr(chunk, bufs[1], i->args[0]);
+        printf("%s = ALLOC %s\n", bufs[0], bufs[1]);
         break;
     case OP_MOV:
-        reftostr(chunk, bufs[0], i->args[0]);
-        reftostr(chunk, bufs[1], i->args[1]);
-        printf("MOV %s, %s\n", bufs[0], bufs[1]);
+        reftostr(chunk, bufs[0], i->dst);
+        reftostr(chunk, bufs[1], i->args[0]);
+        printf("%s = %s\n", bufs[0], bufs[1]);
         break;
     case OP_CALL:
         reftostr(chunk, bufs[0], i->args[0]);
@@ -268,10 +262,9 @@ static int blkliveness(Chunk *chunk, Block *blk) {
     memcpy(set, blk->liveout, chunk->tmpcnt);
     for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
         Ins *i = &blk->ins[ip];
-        if (DEF(0)) set[TMP(0)] = 0;
-        if (DEF(1)) set[TMP(1)] = 0;
-        if (USE(0)) set[TMP(0)] = 1;
-        if (USE(1)) set[TMP(1)] = 1;
+        if (isreftmp(i->dst)) set[i->dst.val] = 0;
+        if (isreftmp(i->args[0])) set[i->args[0].val] = 1;
+        if (isreftmp(i->args[1])) set[i->args[1].val] = 1;
     }
     change |= memcmp(set, blk->livein, chunk->tmpcnt);
     memcpy(blk->livein, set, chunk->tmpcnt);
@@ -302,20 +295,13 @@ void interferes(Chunk *chunk, char *set, int tmp) {
         if (live[tmp]) setunion(set, live, chunk->tmpcnt);
         for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
             Ins *i = &blk->ins[ip];
-            // kludge. defined but unused temporaries
-            // never appear in the live set.
-            // find correct algo to handle this
-            if (live[tmp]) {
-                if (DEF(0)) set[TMP(0)] = 1;
-                if (DEF(1)) set[TMP(1)] = 1;
-            }
-            if (DEF(0) && (TMP(0) == tmp)) setunion(set, live, chunk->tmpcnt);
-            if (DEF(1) && (TMP(1) == tmp)) setunion(set, live, chunk->tmpcnt);
+            // add defined tmp to lvie set
+            if (isreftmp(i->dst)) live[i->dst.val] = 1;
+            if (live[tmp]) setunion(set, live, chunk->tmpcnt);
             // update live set
-            if (DEF(0)) live[TMP(0)] = 0;
-            if (DEF(1)) live[TMP(1)] = 0;
-            if (USE(0)) live[TMP(0)] = 1;
-            if (USE(1)) live[TMP(1)] = 1;
+            if (isreftmp(i->dst)) live[i->dst.val] = 0;
+            if (isreftmp(i->args[0])) live[i->args[0].val] = 1;
+            if (isreftmp(i->args[1])) live[i->args[1].val] = 1;
             if (live[tmp]) setunion(set, live, chunk->tmpcnt);
         }
     }

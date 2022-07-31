@@ -47,7 +47,7 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
 }
 
 static void genblk(Chunk *chunk, Block *blk) {
-    char bufs[2][16];
+    char bufs[3][16];
     printf(".L%i:\n", blk->lbl);
     for (int ip = 0; ip < blk->inscnt; ip++) {
         Ins *i = &blk->ins[ip];
@@ -60,16 +60,18 @@ static void genblk(Chunk *chunk, Block *blk) {
             printf("mov [%s], al\n", rstr(tmpr(chunk, chunk->dptmpid)));
             break;
         case OP_ADD: {
-            assert(isreftmp(i->args[0]));
-            // assert(isrefint(chunk, i->args[1]));
-            reftostr(chunk, bufs[1], i->args[1]);
-            printf("add %s, %s\n", rstr(tmpr(chunk, i->args[0].val)), bufs[1]);
+            assert(isreftmp(i->dst));
+            reftostr(chunk, bufs[0], i->dst);
+            reftostr(chunk, bufs[1], i->args[0]);
+            reftostr(chunk, bufs[2], i->args[1]);
+            printf("mov %s, %s\n", bufs[0], bufs[1]);
+            printf("add %s, %s\n", bufs[0], bufs[2]);
             break;
         }
         case OP_LOAD8:
             printf("movzx %s, byte [%s]\n",
-                    rstr(tmpr(chunk, i->args[0].val)),
-                    rstr(tmpr(chunk, i->args[1].val)));
+                    rstr(tmpr(chunk, i->dst.val)),
+                    rstr(tmpr(chunk, i->args[0].val)));
             break;
         case OP_STORE8:
             printf("mov byte [%s], %s\n",
@@ -78,29 +80,29 @@ static void genblk(Chunk *chunk, Block *blk) {
             break;
         case OP_NOT: {
             printf("cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
-            printf("setz %s\n", rstrb(tmpr(chunk, i->args[0].val)));
+            printf("setz %s\n", rstrb(tmpr(chunk, i->dst.val)));
             break;
         }
         case OP_CJMP:
-            printf("cmp %s, 0\n",  rstr(tmpr(chunk, i->args[0].val)));
+            printf("cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
             printf("jnz .L%i\n",  i->args[1].val);
             break;
         case OP_JMP:
             printf("jmp .L%i\n",  i->args[0].val);
             break;
         case OP_ALLOC: {
-            assert(isreftmp(i->args[0]));
-            assert(isrefint(chunk, i->args[1]));
-            int size = chunk->cons[i->args[1].val].as.int_;
+            assert(isreftmp(i->dst));
+            assert(isrefint(chunk, i->args[0]));
+            int size = chunk->cons[i->args[0].val].as.int_;
             int slots = (size + 15) / 16;
             printf("sub rsp, %i * %i\n", slots, 16);
-            printf("mov %s, rsp\n", rstr(tmpr(chunk, i->args[0].val)));
+            printf("mov %s, rsp\n", rstr(tmpr(chunk, i->dst.val)));
             break;
         }
         case OP_MOV: {
-            assert(isreftmp(i->args[0]));
-            reftostr(chunk, bufs[1], i->args[1]);
-            printf("mov %s, %s\n", rstr(tmpr(chunk, i->args[0].val)), bufs[1]);
+            assert(isreftmp(i->dst));
+            reftostr(chunk, bufs[0], i->args[0]);
+            printf("mov %s, %s\n", rstr(tmpr(chunk, i->dst.val)), bufs[0]);
             break;
         }
         default:
