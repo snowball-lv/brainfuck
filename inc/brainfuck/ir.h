@@ -102,7 +102,7 @@ Ins icjmp(Ref cnd, Ref lbl);
 Ins inot(Ref tmp);
 Ins ialloc(Ref dst, Ref size);
 Ins imov(Ref dst, Ref src);
-Ins icall(Ref name);
+Ins icall(Ref dst, Ref name);
 Ins iscratch();
 
 void printchunk(Chunk *chunk);

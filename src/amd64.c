@@ -119,10 +119,11 @@ static void genblk(Chunk *chunk, Block *blk) {
         switch (i->op) {
         case OP_SCRATCH: printf("; scratch\n"); break;
         case OP_CALL:
-            reftostr(chunk, bufs[0], i->args[0]);
+            reftostr(chunk, bufs[0], i->dst);
+            reftostr(chunk, bufs[1], i->args[0]);
             printf("movzx rdi, byte [%s]\n", rstr(tmpr(chunk, chunk->dptmpid)));
-            printf("call %s\n", bufs[0]);
-            printf("mov [%s], al\n", rstr(tmpr(chunk, chunk->dptmpid)));
+            printf("call %s\n", bufs[1]);
+            printf("mov %s, rax\n", bufs[0]);
             break;
         case OP_ADD: {
             assert(isreftmp(i->dst));

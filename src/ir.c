@@ -138,9 +138,9 @@ Ins imov(Ref dst, Ref src) {
     return (Ins){.op = OP_MOV, .dst = dst, .args = {src}};
 }
 
-Ins icall(Ref name) {
+Ins icall(Ref dst, Ref name) {
     assert(isrefcons(name));
-    return (Ins){.op = OP_CALL, .args = {name}};
+    return (Ins){.op = OP_CALL, .dst = dst, .args = {name}};
 }
 
 Ins iscratch() {
@@ -206,8 +206,9 @@ void printins(Chunk *chunk, Ins *i) {
         printf("SCRATCH\n");
         break;
     case OP_CALL:
-        reftostr(chunk, bufs[0], i->args[0]);
-        printf("CALL [%s]\n", bufs[0]);
+        reftostr(chunk, bufs[0], i->dst);
+        reftostr(chunk, bufs[1], i->args[0]);
+        printf("%s = CALL [%s]\n", bufs[0], bufs[1]);
         break;
     default: printf("???\n"); break;
     }

@@ -35,14 +35,19 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             emit(chunk, istore8(reftmp(chunk->dptmpid), reftmp(tmp)));
             break;
         }
-        case '.':
+        case '.': {
+            int tmp = newtmp(chunk);
             emit(chunk, iscratch());
-            emit(chunk, icall(refcons(newstr(chunk, "putchar"))));
+            emit(chunk, icall(reftmp(tmp), refcons(newstr(chunk, "putchar"))));
             break;
-        case ',':
+        }
+        case ',': {
             emit(chunk, iscratch());
-            emit(chunk, icall(refcons(newstr(chunk, "getchar"))));
+            int tmp = newtmp(chunk);
+            emit(chunk, icall(reftmp(tmp), refcons(newstr(chunk, "getchar"))));
+            emit(chunk, istore8(reftmp(chunk->dptmpid), reftmp(tmp)));
             break;
+        }
         case '[': {
             int tmp = newtmp(chunk);
             int startlbl = newlbl(chunk);
