@@ -38,6 +38,13 @@ int newint(Chunk *chunk, int i) {
     return id;
 }
 
+int newstr(Chunk *chunk, char *str) {
+    int id = newcons(chunk);
+    chunk->cons[id].type = CONS_STR;
+    chunk->cons[id].as.str = str;
+    return id;
+}
+
 Ref reftmp(int id) {
     return (Ref){.type = REF_TMP, .val = id};
 }
@@ -60,6 +67,10 @@ int isrefcons(Ref r) {
 
 int isrefint(Chunk *chunk, Ref r) {
     return isrefcons(r) && chunk->cons[r.val].type == CONS_INT;
+}
+
+int isrefstr(Chunk *chunk, Ref r) {
+    return isrefcons(r) && chunk->cons[r.val].type == CONS_STR;
 }
 
 void emitins(Block *blk, Ins ins) {
@@ -135,12 +146,18 @@ Ins imov(Ref dst, Ref src) {
             .use = BIT(1), .def = BIT(0)};
 }
 
+Ins icall(Ref name) {
+    assert(isrefcons(name));
+    return (Ins){.op = OP_CALL, .args = {name}};
+}
+
 static void reftostr(Chunk *chunk, char *buf, Ref r) {
     sprintf(buf, "[???]");
     if (r.type == REF_TMP) sprintf(buf, "$%i", r.val);
     if (r.type == REF_CONS) {
         Cons *cons = &chunk->cons[r.val];
         if (cons->type == CONS_INT) sprintf(buf, "%i", cons->as.int_);
+        if (cons->type == CONS_STR) sprintf(buf, "%s", cons->as.str);
     }
     if (r.type == REF_LBL) sprintf(buf, "@L%i", r.val);
 }
@@ -148,8 +165,6 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
 void printins(Chunk *chunk, Ins *i) {
     char bufs[2][16];
     switch (i->op) {
-    case OP_WRITE: printf("WRITE\n"); break;
-    case OP_READ: printf("READ\n"); break;
     case OP_NOP: printf("NOP\n"); break;
     case OP_ADD:
         reftostr(chunk, bufs[0], i->args[0]);
@@ -188,6 +203,10 @@ void printins(Chunk *chunk, Ins *i) {
         reftostr(chunk, bufs[0], i->args[0]);
         reftostr(chunk, bufs[1], i->args[1]);
         printf("MOV %s, %s\n", bufs[0], bufs[1]);
+        break;
+    case OP_CALL:
+        reftostr(chunk, bufs[0], i->args[0]);
+        printf("CALL [%s]\n", bufs[0]);
         break;
     default: printf("???\n"); break;
     }

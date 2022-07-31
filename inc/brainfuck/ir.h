@@ -2,7 +2,6 @@
 
 enum {
     OP_NONE,
-    OP_WRITE, OP_READ,
     OP_ADD,
     OP_LOAD8, OP_STORE8,
     OP_JMP, OP_CJMP,
@@ -10,6 +9,7 @@ enum {
     OP_NOP,
     OP_ALLOC,
     OP_MOV,
+    OP_CALL,
 };
 
 typedef struct {
@@ -32,9 +32,11 @@ typedef struct {
     enum {
         CONS_NONE,
         CONS_INT,
+        CONS_STR,
     } type;
     union {
         int int_;
+        char *str;
     } as;
 } Cons;
 
@@ -66,12 +68,14 @@ int newblk(Chunk *chunk);
 int newlbl(Chunk *chunk);
 int newtmp(Chunk *chunk);
 int newint(Chunk *chunk, int i);
+int newstr(Chunk *chunk, char *str);
 Ref reftmp(int id);
 Ref reflbl(int id);
 Ref refcons(int id);
 
 int isreftmp(Ref r);
 int isrefint(Chunk *chunk, Ref r);
+int isrefstr(Chunk *chunk, Ref r);
 
 void emitins(Block *blk, Ins ins);
 void erase(Block *blk, int pos, int cnt);
@@ -85,6 +89,7 @@ Ins icjmp(Ref cnd, Ref lbl);
 Ins inot(Ref tmp);
 Ins ialloc(Ref dst, Ref size);
 Ins imov(Ref dst, Ref src);
+Ins icall(Ref name);
 
 void printchunk(Chunk *chunk);
 void printins(Chunk *chunk, Ins *i);

@@ -5,55 +5,6 @@
 #include <brainfuck/ir.h>
 #include <brainfuck/brainfuck.h>
 
-static void runir(Chunk *chunk) {
-    char data[30000] = {0};
-    int *tmps = malloc(chunk->tmpcnt * sizeof(int));
-    memset(tmps, 0, chunk->tmpcnt * sizeof(int));
-    #define DP tmps[chunk->dptmpid]
-    Block *blk = &chunk->blocks[0];
-    for (int ip = 0; ip < blk->inscnt; ip++) {
-        Ins *i = &blk->ins[ip];
-        switch (i->op) {
-        case OP_WRITE: bfwrite(data[DP]); break;
-        case OP_READ: data[DP] = bfread(); break;
-        case OP_ADD:
-            assert(isreftmp(i->args[0]));
-            assert(isrefint(chunk, i->args[1]));
-            tmps[i->args[0].val] += chunk->cons[i->args[1].val].as.int_;
-            break;
-        case OP_LOAD8:
-            assert(isreftmp(i->args[0]));
-            assert(isreftmp(i->args[1]));
-            tmps[i->args[0].val] = data[tmps[i->args[1].val]];
-            break;
-        case OP_STORE8:
-            assert(isreftmp(i->args[0]));
-            assert(isreftmp(i->args[1]));
-            data[tmps[i->args[0].val]] = tmps[i->args[1].val];
-            break;
-        case OP_JMP: {
-            blk = findblk(chunk, i->args[0].val);
-            ip = -1; // compensate for ip++
-            break;
-        }
-        case OP_CJMP: {
-            if (!tmps[i->args[0].val]) break;
-            blk = findblk(chunk, i->args[1].val);
-            ip = -1; // compensate for ip++
-            break;
-        }
-        case OP_NOT:
-            tmps[i->args[0].val] = !tmps[i->args[0].val];
-            break;
-        case OP_NOP: break;
-        default:
-            printf("*** unknown opcode [%i]\n", i->op);
-            exit(1);
-        }
-    }
-    free(tmps);
-}
-
 static void pushblk(Chunk *chunk) {
     int blkid = newblk(chunk);
     chunk->curblk = &chunk->blocks[blkid];
@@ -84,8 +35,12 @@ static int _genir(Chunk *chunk, char *src, int ip) {
             emit(chunk, istore8(reftmp(chunk->dptmpid), reftmp(tmp)));
             break;
         }
-        case '.': emit(chunk, (Ins){OP_WRITE}); break;
-        case ',': emit(chunk, (Ins){OP_READ}); break;
+        case '.':
+            emit(chunk, icall(refcons(newstr(chunk, "putchar"))));
+            break;
+        case ',':
+            emit(chunk, icall(refcons(newstr(chunk, "getchar"))));
+            break;
         case '[': {
             int tmp = newtmp(chunk);
             int startlbl = newlbl(chunk);
@@ -154,11 +109,4 @@ void bftoir(Chunk *chunk, char *src) {
     chunk->dptmpid = newtmp(chunk);
     zerodata(chunk);
     _genir(chunk, src, 0);
-}
-
-void interpretir(char *src) {
-    Chunk chunk = {0};
-    bftoir(&chunk, src);
-    // printchunk(&chunk);
-    runir(&chunk);
 }

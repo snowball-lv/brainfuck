@@ -43,6 +43,7 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
     sprintf(buf, "[???]");
     if (isreftmp(r)) sprintf(buf, "%s", rstr(tmpr(chunk, r.val)));
     if (isrefint(chunk, r)) sprintf(buf, "%i", chunk->cons[r.val].as.int_);
+    if (isrefstr(chunk, r)) sprintf(buf, "%s", chunk->cons[r.val].as.str);
 }
 
 static void genblk(Chunk *chunk, Block *blk) {
@@ -52,13 +53,11 @@ static void genblk(Chunk *chunk, Block *blk) {
         Ins *i = &blk->ins[ip];
         printf("; "); printins(chunk, i);
         switch (i->op) {
-        case OP_READ:
-            printf("call getchar\n");
-            printf("mov [%s], al\n", rstr(tmpr(chunk, chunk->dptmpid)));
-            break;
-        case OP_WRITE:
+        case OP_CALL:
+            reftostr(chunk, bufs[0], i->args[0]);
             printf("movzx rdi, byte [%s]\n", rstr(tmpr(chunk, chunk->dptmpid)));
-            printf("call putchar\n");
+            printf("call %s\n", bufs[0]);
+            printf("mov [%s], al\n", rstr(tmpr(chunk, chunk->dptmpid)));
             break;
         case OP_ADD: {
             assert(isreftmp(i->args[0]));
