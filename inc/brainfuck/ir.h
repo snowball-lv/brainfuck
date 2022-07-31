@@ -11,6 +11,7 @@ enum {
     OP_MOV,
     OP_CALL,
     OP_SCRATCH,
+    OP_ARG,
 };
 
 typedef struct {
@@ -104,6 +105,7 @@ Ins ialloc(Ref dst, Ref size);
 Ins imov(Ref dst, Ref src);
 Ins icall(Ref dst, Ref name);
 Ins iscratch();
+Ins iarg(int n, Ref arg);
 
 void printchunk(Chunk *chunk);
 void printins(Chunk *chunk, Ins *i);

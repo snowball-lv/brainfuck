@@ -147,6 +147,10 @@ Ins iscratch() {
     return (Ins){.op = OP_SCRATCH};
 }
 
+Ins iarg(int n, Ref arg) {
+    return (Ins){.op = OP_ARG, .args = {{.val = n}, arg}};
+}
+
 static void reftostr(Chunk *chunk, char *buf, Ref r) {
     sprintf(buf, "[???]");
     if (r.type == REF_TMP) sprintf(buf, "$%i", r.val);
@@ -204,6 +208,10 @@ void printins(Chunk *chunk, Ins *i) {
         break;
     case OP_SCRATCH:
         printf("SCRATCH\n");
+        break;
+    case OP_ARG:
+        reftostr(chunk, bufs[0], i->args[1]);
+        printf("ARG #%i, %s\n", i->args[0].val, bufs[0]);
         break;
     case OP_CALL:
         reftostr(chunk, bufs[0], i->dst);

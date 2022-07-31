@@ -37,8 +37,10 @@ static int _genir(Chunk *chunk, char *src, int ip) {
         }
         case '.': {
             int tmp = newtmp(chunk);
+            emit(chunk, iload8(reftmp(tmp), reftmp(chunk->dptmpid)));
             emit(chunk, iscratch());
-            emit(chunk, icall(reftmp(tmp), refcons(newstr(chunk, "putchar"))));
+            emit(chunk, iarg(0, reftmp(tmp)));
+            emit(chunk, icall(reftmp(newtmp(chunk)), refcons(newstr(chunk, "putchar"))));
             break;
         }
         case ',': {
