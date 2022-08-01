@@ -199,40 +199,6 @@ static void genchunk(Chunk *chunk) {
         printf("mov %s, [rbp - %i]\n", rstr(r), (r - R_R12 + 1) * 8);
 }
 
-static int allregs() {
-    int all = 0;
-    for (int r = R_R12; r < R_MAX; r++)
-        all |= 1 << r;
-    return all;
-}
-
-static void color(Chunk *chunk) {
-    char *set = malloc(chunk->tmpcnt);
-    for (int tmp = 0; tmp < chunk->tmpcnt; tmp++) {
-        int freeregs = allregs();
-        memset(set, 0, chunk->tmpcnt);
-        interferes(chunk, set, tmp);
-        printf("; $%i", tmp);
-        for (int i = 0; i < chunk->tmpcnt; i++) {
-            if (!set[i]) continue;
-            printf(" -- $%i", i);
-            if (!chunk->tmps[i].reg) continue;
-            printf("(%s)", rstr(chunk->tmps[i].reg));
-            freeregs &= ~(1 << chunk->tmps[i].reg);
-        }
-        printf("\n");
-        if (!chunk->tmps[tmp].reg) {
-            if (!freeregs) {
-                printf("*** spill $%i\n", tmp);
-                exit(1);
-            }
-            chunk->tmps[tmp].reg = __builtin_ctz(freeregs);
-        }
-        printf("; $%i = %s\n", tmp, rstr(chunk->tmps[tmp].reg));
-    }
-    free(set);
-}
-
 static Target T = {
     .ret = (int[]){R_RAX, R_RDX},
     .nret = 2,
@@ -266,8 +232,14 @@ void amd64gen(Chunk *chunk) {
     for (int r = 0; r < R_MAX; r++) {
         int tmp = newtmp(chunk);
         chunk->tmps[tmp].reg = r;
+        chunk->tmps[tmp].precolored = 1;
         T.rtmps[r] = tmp;
     }
+    // set usable regs for temps
+    T.freeregs = 0;
+    for (int r = R_R12; r < R_MAX; r++)
+        T.freeregs |= 1 << r;
+    T.rstr = rstr;
     chunk->target = &T;
     filter(chunk);
     liveness(chunk);

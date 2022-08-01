@@ -44,6 +44,7 @@ typedef struct {
 
 typedef struct {
     int reg;
+    char precolored;
 } Tmp;
 
 typedef struct {
@@ -63,6 +64,8 @@ typedef struct {
     int nscratch;
     int *rtmps;
     int nrtmps;
+    int freeregs;
+    char *(*rstr)(int reg);
 } Target;
 
 typedef struct {
@@ -111,5 +114,4 @@ void printchunk(Chunk *chunk);
 void printins(Chunk *chunk, Ins *i);
 
 void liveness(Chunk *chunk);
-Block *findblk(Chunk *chunk, int lbl);
-void interferes(Chunk *chunk, char *set, int tmp);
+void color(Chunk *chunk);

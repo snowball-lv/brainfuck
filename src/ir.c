@@ -370,3 +370,31 @@ void interferes(Chunk *chunk, char *set, int tmp) {
     // don't interfere with yourself
     set[tmp] = 0;
 }
+
+void color(Chunk *chunk) {
+    char *set = malloc(chunk->tmpcnt);
+    for (int tmp = 0; tmp < chunk->tmpcnt; tmp++) {
+        if (chunk->tmps[tmp].precolored) continue;
+        chunk->tmps[tmp].reg = 0;
+        int freeregs = chunk->target->freeregs;
+        memset(set, 0, chunk->tmpcnt);
+        interferes(chunk, set, tmp);
+        printf("; $%i -", tmp);
+        for (int i = 0; i < chunk->tmpcnt; i++) {
+            if (!set[i]) continue;
+            printf(" $%i", i);
+            if (!chunk->tmps[i].reg) continue;
+            printf("(%s)", chunk->target->rstr(chunk->tmps[i].reg));
+            freeregs &= ~(1 << chunk->tmps[i].reg);
+        }
+        printf("\n");
+        if (!freeregs) {
+            printf("*** spill $%i\n", tmp);
+            exit(1);
+        }
+        int reg = __builtin_ctz(freeregs);
+        chunk->tmps[tmp].reg = reg;
+        printf("; $%i = %s\n", tmp, chunk->target->rstr(reg));
+    }
+    free(set);
+}
