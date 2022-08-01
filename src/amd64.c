@@ -242,6 +242,22 @@ static Target T = {
     .nscratch = 9,
 };
 
+static void filter(Chunk *chunk) {
+    for (int bi = 0; bi < chunk->blkcnt; bi++) {
+        Block *blk = &chunk->blocks[bi];
+        for (int ip = 0; ip < blk->inscnt; ip++) {
+            Ins *i = &blk->ins[ip];
+            if (i->op == OP_ARG) {
+                int argn = i->args[0].val;
+                int reg = chunk->target->params[argn];
+                int rtmp = chunk->target->rtmps[reg];
+                assert(isreftmp(i->args[1]));
+                *i = imov(reftmp(rtmp), i->args[1]);
+            }
+        }
+    }
+}
+
 void amd64gen(Chunk *chunk) {
     // create pre-colored tmp for each register
     T.rtmps = malloc(R_MAX * sizeof(int));
@@ -252,6 +268,7 @@ void amd64gen(Chunk *chunk) {
         T.rtmps[r] = tmp;
     }
     chunk->target = &T;
+    filter(chunk);
     liveness(chunk);
     color(chunk);
     printf("bits 64\n");

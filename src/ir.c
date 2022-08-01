@@ -278,6 +278,10 @@ static int blkliveness(Chunk *chunk, Block *blk) {
     memcpy(set, blk->liveout, chunk->tmpcnt);
     for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
         Ins *i = &blk->ins[ip];
+        if (i->op == OP_ARG) {
+            printf("*** ARG pseudo-ops should be removed\n");
+            exit(1);
+        }
         // def
         if (isreftmp(i->dst)) set[i->dst.val] = 0;
         if (i->op == OP_CALL || i->op == OP_SCRATCH) {
