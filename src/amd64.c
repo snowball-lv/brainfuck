@@ -249,6 +249,7 @@ static void filter(Chunk *chunk) {
             Ins *i = &blk->ins[ip];
             if (i->op == OP_ARG) {
                 int argn = i->args[0].val;
+                assert(argn < chunk->target->nparams);
                 int reg = chunk->target->params[argn];
                 int rtmp = chunk->target->rtmps[reg];
                 assert(isreftmp(i->args[1]));
