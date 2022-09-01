@@ -1,15 +1,5 @@
 #pragma once
 
-typedef struct Func Func;
-
-typedef struct {
-    char *infile;
-    char *outfile;
-    char *src;
-    FILE *out;
-    Func *fn;
-} Task;
-
 void bfwrite(int c);
 int bfread();
 

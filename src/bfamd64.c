@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <brainfuck/common.h>
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 #include <brainfuck/amd64.h>
@@ -89,8 +90,7 @@ void gennasm(Task *t) {
 }
 
 void genirnasm(Task *t) {
-    t->fn = malloc(sizeof(Func));
-    memset(t->fn, 0, sizeof(Func));
+    t->m = newmod();
     bftoir(t);
     amd64gen(t);
 }

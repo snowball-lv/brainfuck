@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <brainfuck/common.h>
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 #include <brainfuck/amd64.h>
@@ -226,9 +227,8 @@ static void filter(Func *fn) {
     }
 }
 
-void amd64gen(Task *t) {
+static void amd64genfn(Task *t, Func *fn) {
     // create pre-colored tmp for each regist
-    Func *fn = t->fn;
     T.rtmps = malloc(R_MAX * sizeof(int));
     T.nrtmps = R_MAX;
     for (int r = 0; r < R_MAX; r++) {
@@ -264,4 +264,9 @@ void amd64gen(Task *t) {
     fprintf(t->out, "pop rbp\n");
     fprintf(t->out, "mov rax, 0\n");
     fprintf(t->out, "ret\n");
+}
+
+void amd64gen(Task *t) {
+    for (int i = 0; i < t->m->nfns; i++)
+        amd64genfn(t, t->m->fns[i]);
 }

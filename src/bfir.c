@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <brainfuck/common.h>
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 
@@ -114,8 +115,9 @@ static void zerodata(Func *fn) {
 }
 
 void bftoir(Task *t) {
-    pushblk(t->fn);
-    t->fn->dptmpid = newtmp(t->fn);
-    zerodata(t->fn);
-    _genir(t->fn, t->src, 0);
+    Func *fn = newfn(t->m);
+    pushblk(fn);
+    fn->dptmpid = newtmp(fn);
+    zerodata(fn);
+    _genir(fn, t->src, 0);
 }

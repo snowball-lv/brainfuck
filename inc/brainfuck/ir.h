@@ -68,7 +68,7 @@ typedef struct {
     char *(*rstr)(int reg);
 } Target;
 
-struct Func {
+typedef struct {
     Block *blocks;
     int blkcnt;
     Block *curblk;
@@ -79,8 +79,15 @@ struct Func {
     int dptmpid;
     int lblcnt;
     Target *target;
+} Func;
+
+struct Mod {
+    Func **fns;
+    int nfns;
 };
 
+Mod *newmod();
+Func *newfn(Mod *m);
 int newblk(Func *fn);
 int newlbl(Func *fn);
 int newtmp(Func *fn);

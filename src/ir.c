@@ -2,8 +2,24 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <brainfuck/common.h>
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
+
+Mod *newmod() {
+    Mod *m = malloc(sizeof(Mod));
+    memset(m, 0, sizeof(Mod));
+    return m;
+}
+
+Func *newfn(Mod *m) {
+    Func *fn = malloc(sizeof(Func));
+    memset(fn, 0, sizeof(Func));
+    m->nfns++;
+    m->fns = realloc(m->fns, m->nfns * sizeof(Func *));
+    m->fns[m->nfns - 1] = fn;
+    return fn;
+}
 
 int newblk(Func *fn) {
     fn->blkcnt++;

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <brainfuck/common.h>
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 

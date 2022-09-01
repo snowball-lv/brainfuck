@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <brainfuck/common.h>
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 
