@@ -68,7 +68,7 @@ typedef struct {
     char *(*rstr)(int reg);
 } Target;
 
-typedef struct {
+struct Chunk {
     Block *blocks;
     int blkcnt;
     Block *curblk;
@@ -79,7 +79,7 @@ typedef struct {
     int dptmpid;
     int lblcnt;
     Target *target;
-} Chunk;
+};
 
 int newblk(Chunk *chunk);
 int newlbl(Chunk *chunk);
@@ -110,8 +110,8 @@ Ins icall(Ref dst, Ref name);
 Ins iscratch();
 Ins iarg(int n, Ref arg);
 
-void printchunk(Chunk *chunk);
-void printins(Chunk *chunk, Ins *i);
+void printchunk(FILE *out, Chunk *chunk);
+void printins(FILE *out, Chunk *chunk, Ins *i);
 
 void liveness(Chunk *chunk);
-void color(Chunk *chunk);
+void color(Task *t, Chunk *chunk);

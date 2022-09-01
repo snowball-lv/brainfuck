@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 
 int newblk(Chunk *chunk) {
@@ -162,92 +163,92 @@ static void reftostr(Chunk *chunk, char *buf, Ref r) {
     if (r.type == REF_LBL) sprintf(buf, "@L%i", r.val);
 }
 
-void printins(Chunk *chunk, Ins *i) {
+void printins(FILE *out, Chunk *chunk, Ins *i) {
     char bufs[3][16];
     switch (i->op) {
-    case OP_NOP: printf("NOP\n"); break;
+    case OP_NOP: fprintf(out, "NOP\n"); break;
     case OP_ADD:
         reftostr(chunk, bufs[0], i->dst);
         reftostr(chunk, bufs[1], i->args[0]);
         reftostr(chunk, bufs[2], i->args[1]);
-        printf("%s = ADD %s, %s\n", bufs[0], bufs[1], bufs[2]);
+        fprintf(out, "%s = ADD %s, %s\n", bufs[0], bufs[1], bufs[2]);
         break;
     case OP_LOAD8:
         reftostr(chunk, bufs[0], i->dst);
         reftostr(chunk, bufs[1], i->args[0]);
-        printf("%s = LOAD BYTE [%s]\n", bufs[0], bufs[1]);
+        fprintf(out, "%s = LOAD BYTE [%s]\n", bufs[0], bufs[1]);
         break;
     case OP_STORE8:
         reftostr(chunk, bufs[0], i->args[0]);
         reftostr(chunk, bufs[1], i->args[1]);
-        printf("[%s] = STORE BYTE %s\n", bufs[0], bufs[1]);
+        fprintf(out, "[%s] = STORE BYTE %s\n", bufs[0], bufs[1]);
         break;
     case OP_JMP:
         reftostr(chunk, bufs[0], i->args[0]);
-        printf("JMP %s\n", bufs[0]);
+        fprintf(out, "JMP %s\n", bufs[0]);
         break;
     case OP_CJMP:
         reftostr(chunk, bufs[0], i->args[0]);
         reftostr(chunk, bufs[1], i->args[1]);
-        printf("CJMP %s, %s\n", bufs[0], bufs[1]);
+        fprintf(out, "CJMP %s, %s\n", bufs[0], bufs[1]);
         break;
     case OP_NOT:
         reftostr(chunk, bufs[0], i->dst);
         reftostr(chunk, bufs[1], i->args[0]);
-        printf("%s = NOT %s\n", bufs[0], bufs[1]);
+        fprintf(out, "%s = NOT %s\n", bufs[0], bufs[1]);
         break;
     case OP_ALLOC:
         reftostr(chunk, bufs[0], i->dst);
         reftostr(chunk, bufs[1], i->args[0]);
-        printf("%s = ALLOC %s\n", bufs[0], bufs[1]);
+        fprintf(out, "%s = ALLOC %s\n", bufs[0], bufs[1]);
         break;
     case OP_MOV:
         reftostr(chunk, bufs[0], i->dst);
         reftostr(chunk, bufs[1], i->args[0]);
-        printf("%s = %s\n", bufs[0], bufs[1]);
+        fprintf(out, "%s = %s\n", bufs[0], bufs[1]);
         break;
     case OP_SCRATCH:
-        printf("SCRATCH\n");
+        fprintf(out, "SCRATCH\n");
         break;
     case OP_ARG:
         reftostr(chunk, bufs[0], i->args[1]);
-        printf("ARG #%i, %s\n", i->args[0].val, bufs[0]);
+        fprintf(out, "ARG #%i, %s\n", i->args[0].val, bufs[0]);
         break;
     case OP_CALL:
         reftostr(chunk, bufs[0], i->dst);
         reftostr(chunk, bufs[1], i->args[0]);
-        printf("%s = CALL [%s]\n", bufs[0], bufs[1]);
+        fprintf(out, "%s = CALL [%s]\n", bufs[0], bufs[1]);
         break;
-    default: printf("???\n"); break;
+    default: fprintf(out, "???\n"); break;
     }
 }
 
-static void printblock(Chunk *chunk, Block *blk) {
-    printf("Block @L%i ->", blk->lbl);
-    if (blk->outlbls[0]) printf(" @L%i", blk->outlbls[0]);
-    if (blk->outlbls[1]) printf(" @L%i", blk->outlbls[1]);
-    printf("\n");
+static void printblock(FILE *out, Chunk *chunk, Block *blk) {
+    fprintf(out, "Block @L%i ->", blk->lbl);
+    if (blk->outlbls[0]) fprintf(out, " @L%i", blk->outlbls[0]);
+    if (blk->outlbls[1]) fprintf(out, " @L%i", blk->outlbls[1]);
+    fprintf(out, "\n");
     if (blk->livein) {
-        printf("Live in");
+        fprintf(out, "Live in");
         for (int tmp = 0; tmp < chunk->tmpcnt; tmp++)
-            if (blk->livein[tmp]) printf(" $%i", tmp);
-        printf("\n");
+            if (blk->livein[tmp]) fprintf(out, " $%i", tmp);
+        fprintf(out, "\n");
     }
     if (blk->liveout) {
-        printf("Live out");
+        fprintf(out, "Live out");
         for (int tmp = 0; tmp < chunk->tmpcnt; tmp++)
-            if (blk->liveout[tmp]) printf(" $%i", tmp);
-        printf("\n");
+            if (blk->liveout[tmp]) fprintf(out, " $%i", tmp);
+        fprintf(out, "\n");
     }
     for (int ip = 0; ip < blk->inscnt; ip++) {
-        printf("%3i: ", ip);
-        printins(chunk, &blk->ins[ip]);
+        fprintf(out, "%3i: ", ip);
+        printins(out, chunk, &blk->ins[ip]);
     }
 }
 
-void printchunk(Chunk *chunk) {
+void printchunk(FILE *out, Chunk *chunk) {
     for (int i = 0; i < chunk->blkcnt; i++)
-        printblock(chunk, &chunk->blocks[i]);
+        printblock(out, chunk, &chunk->blocks[i]);
 }
 
 Block *findblk(Chunk *chunk, int lbl) {
@@ -371,7 +372,7 @@ void interferes(Chunk *chunk, char *set, int tmp) {
     set[tmp] = 0;
 }
 
-void color(Chunk *chunk) {
+void color(Task *t, Chunk *chunk) {
     char *set = malloc(chunk->tmpcnt);
     for (int tmp = 0; tmp < chunk->tmpcnt; tmp++) {
         if (chunk->tmps[tmp].precolored) continue;
@@ -379,22 +380,22 @@ void color(Chunk *chunk) {
         int freeregs = chunk->target->freeregs;
         memset(set, 0, chunk->tmpcnt);
         interferes(chunk, set, tmp);
-        printf("; $%i -", tmp);
+        fprintf(t->out, "; $%i -", tmp);
         for (int i = 0; i < chunk->tmpcnt; i++) {
             if (!set[i]) continue;
-            printf(" $%i", i);
+            fprintf(t->out, " $%i", i);
             if (!chunk->tmps[i].reg) continue;
-            printf("(%s)", chunk->target->rstr(chunk->tmps[i].reg));
+            fprintf(t->out, "(%s)", chunk->target->rstr(chunk->tmps[i].reg));
             freeregs &= ~(1 << chunk->tmps[i].reg);
         }
-        printf("\n");
+        fprintf(t->out, "\n");
         if (!freeregs) {
-            printf("*** spill $%i\n", tmp);
+            fprintf(t->out, "*** spill $%i\n", tmp);
             exit(1);
         }
         int reg = __builtin_ctz(freeregs);
         chunk->tmps[tmp].reg = reg;
-        printf("; $%i = %s\n", tmp, chunk->target->rstr(reg));
+        fprintf(t->out, "; $%i = %s\n", tmp, chunk->target->rstr(reg));
     }
     free(set);
 }

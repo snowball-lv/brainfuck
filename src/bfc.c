@@ -1,5 +1,6 @@
-#include <brainfuck/ir.h>
+#include <stdio.h>
 #include <brainfuck/brainfuck.h>
+#include <brainfuck/ir.h>
 
 void interpretc(char *src) {
     int ip = 0;

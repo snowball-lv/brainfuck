@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <brainfuck/ir.h>
 #include <brainfuck/brainfuck.h>
+#include <brainfuck/ir.h>
 
 static void pushblk(Chunk *chunk) {
     int blkid = newblk(chunk);
@@ -113,9 +113,9 @@ static void zerodata(Chunk *chunk) {
     chunk->curblk->lbl = end;
 }
 
-void bftoir(Chunk *chunk, char *src) {
-    pushblk(chunk);
-    chunk->dptmpid = newtmp(chunk);
-    zerodata(chunk);
-    _genir(chunk, src, 0);
+void bftoir(Task *t) {
+    pushblk(t->chunk);
+    t->chunk->dptmpid = newtmp(t->chunk);
+    zerodata(t->chunk);
+    _genir(t->chunk, t->src, 0);
 }

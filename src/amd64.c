@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 #include <brainfuck/amd64.h>
 
@@ -77,126 +78,126 @@ static char *tmptostr(char *buf, Chunk *chunk, int tmp) {
     return buf;
 }
 
-static void printusedef(Chunk *chunk, Ins *i) {
+static void printusedef(Task *t, Chunk *chunk, Ins *i) {
     char buf[16];
-    printf(";     use:");
-    if (isreftmp(i->args[0])) printf(" %s", tmptostr(buf, chunk, i->args[0].val));
-    if (isreftmp(i->args[1])) printf(" %s", tmptostr(buf, chunk, i->args[1].val));
+    fprintf(t->out, ";     use:");
+    if (isreftmp(i->args[0])) fprintf(t->out, " %s", tmptostr(buf, chunk, i->args[0].val));
+    if (isreftmp(i->args[1])) fprintf(t->out, " %s", tmptostr(buf, chunk, i->args[1].val));
     if (i->op == OP_CALL) {
         for (int i = 0; i < chunk->target->nparams; i++) {
             int r = chunk->target->params[i];
             int tmp = chunk->target->rtmps[r];
-            printf(" %s", tmptostr(buf, chunk, tmp));
+            fprintf(t->out, " %s", tmptostr(buf, chunk, tmp));
         }
     }
-    printf("\n");
-    printf(";     def:");
-    if (isreftmp(i->dst)) printf(" %s", tmptostr(buf, chunk, i->dst.val));
+    fprintf(t->out, "\n");
+    fprintf(t->out, ";     def:");
+    if (isreftmp(i->dst)) fprintf(t->out, " %s", tmptostr(buf, chunk, i->dst.val));
     if (i->op == OP_CALL) {
         for (int i = 0; i < chunk->target->nscratch; i++) {
             int r = chunk->target->scratch[i];
             int tmp = chunk->target->rtmps[r];
-            printf(" %s", tmptostr(buf, chunk, tmp));
+            fprintf(t->out, " %s", tmptostr(buf, chunk, tmp));
         }
     }
     else if (i->op == OP_SCRATCH) {
         for (int i = 0; i < chunk->target->nscratch; i++) {
             int r = chunk->target->scratch[i];
             int tmp = chunk->target->rtmps[r];
-            printf(" %s", tmptostr(buf, chunk, tmp));
+            fprintf(t->out, " %s", tmptostr(buf, chunk, tmp));
         }
     }
-    printf("\n");
+    fprintf(t->out, "\n");
 }
 
-static void genblk(Chunk *chunk, Block *blk) {
+static void genblk(Task *t, Chunk *chunk, Block *blk) {
     char bufs[3][16];
-    printf(".L%i:\n", blk->lbl);
+    fprintf(t->out, ".L%i:\n", blk->lbl);
     for (int ip = 0; ip < blk->inscnt; ip++) {
         Ins *i = &blk->ins[ip];
-        printf("; "); printins(chunk, i);
-        printusedef(chunk, i);
+        fprintf(t->out, "; "); printins(t->out, chunk, i);
+        printusedef(t, chunk, i);
         switch (i->op) {
         case OP_SCRATCH:
-            printf("; scratch\n");
+            fprintf(t->out, "; scratch\n");
             break;
         case OP_ARG: {
             int argn = i->args[0].val;
             int r = chunk->target->params[argn];
             reftostr(chunk, bufs[0], i->args[1]);
-            printf("mov %s, %s\n", rstr(r), bufs[0]);
+            fprintf(t->out, "mov %s, %s\n", rstr(r), bufs[0]);
             break;
         }
         case OP_CALL:
             reftostr(chunk, bufs[0], i->dst);
             reftostr(chunk, bufs[1], i->args[0]);
-            printf("call %s\n", bufs[1]);
-            printf("mov %s, rax\n", bufs[0]);
+            fprintf(t->out, "call %s\n", bufs[1]);
+            fprintf(t->out, "mov %s, rax\n", bufs[0]);
             break;
         case OP_ADD: {
             assert(isreftmp(i->dst));
             reftostr(chunk, bufs[0], i->dst);
             reftostr(chunk, bufs[1], i->args[0]);
             reftostr(chunk, bufs[2], i->args[1]);
-            printf("mov %s, %s\n", bufs[0], bufs[1]);
-            printf("add %s, %s\n", bufs[0], bufs[2]);
+            fprintf(t->out, "mov %s, %s\n", bufs[0], bufs[1]);
+            fprintf(t->out, "add %s, %s\n", bufs[0], bufs[2]);
             break;
         }
         case OP_LOAD8:
-            printf("movzx %s, byte [%s]\n",
+            fprintf(t->out, "movzx %s, byte [%s]\n",
                     rstr(tmpr(chunk, i->dst.val)),
                     rstr(tmpr(chunk, i->args[0].val)));
             break;
         case OP_STORE8:
-            printf("mov byte [%s], %s\n",
+            fprintf(t->out, "mov byte [%s], %s\n",
                     rstr(tmpr(chunk, i->args[0].val)),
                     rstrb(tmpr(chunk, i->args[1].val)));
             break;
         case OP_NOT: {
-            printf("cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
-            printf("setz %s\n", rstrb(tmpr(chunk, i->dst.val)));
+            fprintf(t->out, "cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
+            fprintf(t->out, "setz %s\n", rstrb(tmpr(chunk, i->dst.val)));
             break;
         }
         case OP_CJMP:
-            printf("cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
-            printf("jnz .L%i\n",  i->args[1].val);
+            fprintf(t->out, "cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
+            fprintf(t->out, "jnz .L%i\n",  i->args[1].val);
             break;
         case OP_JMP:
-            printf("jmp .L%i\n",  i->args[0].val);
+            fprintf(t->out, "jmp .L%i\n",  i->args[0].val);
             break;
         case OP_ALLOC: {
             assert(isreftmp(i->dst));
             assert(isrefint(chunk, i->args[0]));
             int size = chunk->cons[i->args[0].val].as.int_;
             int slots = (size + 15) / 16;
-            printf("sub rsp, %i * %i\n", slots, 16);
-            printf("mov %s, rsp\n", rstr(tmpr(chunk, i->dst.val)));
+            fprintf(t->out, "sub rsp, %i * %i\n", slots, 16);
+            fprintf(t->out, "mov %s, rsp\n", rstr(tmpr(chunk, i->dst.val)));
             break;
         }
         case OP_MOV: {
             assert(isreftmp(i->dst));
             reftostr(chunk, bufs[0], i->args[0]);
-            printf("mov %s, %s\n", rstr(tmpr(chunk, i->dst.val)), bufs[0]);
+            fprintf(t->out, "mov %s, %s\n", rstr(tmpr(chunk, i->dst.val)), bufs[0]);
             break;
         }
         default:
-            printf("*** can't generate op [%i]\n", i->op);
+            fprintf(t->out, "*** can't generate op [%i]\n", i->op);
             exit(1);
         }
     }
 }
 
-static void genchunk(Chunk *chunk) {
-    printf("; save registers\n");
+static void genchunk(Task *t, Chunk *chunk) {
+    fprintf(t->out, "; save registers\n");
     int slots = (R_MAX * 8 + 15) / 16;
-    printf("sub rsp, %i\n", slots * 16);
+    fprintf(t->out, "sub rsp, %i\n", slots * 16);
     for (int r = R_R12; r < R_MAX; r++)
-        printf("mov [rbp - %i], %s\n", (r - R_R12 + 1) * 8, rstr(r));
+        fprintf(t->out, "mov [rbp - %i], %s\n", (r - R_R12 + 1) * 8, rstr(r));
     for (int i = 0; i < chunk->blkcnt; i++)
-        genblk(chunk, &chunk->blocks[i]);
-    printf("; restore registers\n");
+        genblk(t, chunk, &chunk->blocks[i]);
+    fprintf(t->out, "; restore registers\n");
     for (int r = R_R12; r < R_MAX; r++)
-        printf("mov %s, [rbp - %i]\n", rstr(r), (r - R_R12 + 1) * 8);
+        fprintf(t->out, "mov %s, [rbp - %i]\n", rstr(r), (r - R_R12 + 1) * 8);
 }
 
 static Target T = {
@@ -225,8 +226,9 @@ static void filter(Chunk *chunk) {
     }
 }
 
-void amd64gen(Chunk *chunk) {
-    // create pre-colored tmp for each register
+void amd64gen(Task *t) {
+    // create pre-colored tmp for each regist
+    Chunk *chunk = t->chunk;
     T.rtmps = malloc(R_MAX * sizeof(int));
     T.nrtmps = R_MAX;
     for (int r = 0; r < R_MAX; r++) {
@@ -243,23 +245,23 @@ void amd64gen(Chunk *chunk) {
     chunk->target = &T;
     filter(chunk);
     liveness(chunk);
-    color(chunk);
-    printf("bits 64\n");
-    printf("extern putchar\n");
-    printf("extern getchar\n");
-    printf("section .text\n");
-    printf("global main\n");
-    printf("main:\n");
-    printf("push rbp\n");
-    printf("mov rbp, rsp\n");
-    printf("\n");
-    printf("%%if 0\n");
-    printchunk(chunk);
-    printf("%%endif\n\n");
-    genchunk(chunk);
-    printf("\n");
-    printf("mov rsp, rbp\n");
-    printf("pop rbp\n");
-    printf("mov rax, 0\n");
-    printf("ret\n");
+    color(t, chunk);
+    fprintf(t->out, "bits 64\n");
+    fprintf(t->out, "extern putchar\n");
+    fprintf(t->out, "extern getchar\n");
+    fprintf(t->out, "section .text\n");
+    fprintf(t->out, "global main\n");
+    fprintf(t->out, "main:\n");
+    fprintf(t->out, "push rbp\n");
+    fprintf(t->out, "mov rbp, rsp\n");
+    fprintf(t->out, "\n");
+    fprintf(t->out, "%%if 0\n");
+    printchunk(t->out, chunk);
+    fprintf(t->out, "%%endif\n\n");
+    genchunk(t, chunk);
+    fprintf(t->out, "\n");
+    fprintf(t->out, "mov rsp, rbp\n");
+    fprintf(t->out, "pop rbp\n");
+    fprintf(t->out, "mov rax, 0\n");
+    fprintf(t->out, "ret\n");
 }
