@@ -27,9 +27,9 @@ enum {
     R_MAX,
 };
 
-static int tmpr(Chunk *chunk, int tmp) {
-    assert(chunk->tmps[tmp].reg);
-    return chunk->tmps[tmp].reg;
+static int tmpr(Func *fn, int tmp) {
+    assert(fn->tmps[tmp].reg);
+    return fn->tmps[tmp].reg;
 }
 
 static char *rstr(int reg) {
@@ -64,102 +64,102 @@ static char *rstrb(int reg) {
     return "???";
 }
 
-static void reftostr(Chunk *chunk, char *buf, Ref r) {
+static void reftostr(Func *fn, char *buf, Ref r) {
     sprintf(buf, "[???]");
-    if (isreftmp(r)) sprintf(buf, "%s", rstr(tmpr(chunk, r.val)));
-    if (isrefint(chunk, r)) sprintf(buf, "%i", chunk->cons[r.val].as.int_);
-    if (isrefstr(chunk, r)) sprintf(buf, "%s", chunk->cons[r.val].as.str);
+    if (isreftmp(r)) sprintf(buf, "%s", rstr(tmpr(fn, r.val)));
+    if (isrefint(fn, r)) sprintf(buf, "%i", fn->cons[r.val].as.int_);
+    if (isrefstr(fn, r)) sprintf(buf, "%s", fn->cons[r.val].as.str);
 }
 
-static char *tmptostr(char *buf, Chunk *chunk, int tmp) {
+static char *tmptostr(char *buf, Func *fn, int tmp) {
     char *ptr = buf + sprintf(buf, "$%i", tmp);
-    if (chunk->tmps[tmp].reg)
-        sprintf(ptr, "(%s)", rstr(chunk->tmps[tmp].reg));
+    if (fn->tmps[tmp].reg)
+        sprintf(ptr, "(%s)", rstr(fn->tmps[tmp].reg));
     return buf;
 }
 
-static void printusedef(Task *t, Chunk *chunk, Ins *i) {
+static void printusedef(Task *t, Func *fn, Ins *i) {
     char buf[16];
     fprintf(t->out, ";     use:");
-    if (isreftmp(i->args[0])) fprintf(t->out, " %s", tmptostr(buf, chunk, i->args[0].val));
-    if (isreftmp(i->args[1])) fprintf(t->out, " %s", tmptostr(buf, chunk, i->args[1].val));
+    if (isreftmp(i->args[0])) fprintf(t->out, " %s", tmptostr(buf, fn, i->args[0].val));
+    if (isreftmp(i->args[1])) fprintf(t->out, " %s", tmptostr(buf, fn, i->args[1].val));
     if (i->op == OP_CALL) {
-        for (int i = 0; i < chunk->target->nparams; i++) {
-            int r = chunk->target->params[i];
-            int tmp = chunk->target->rtmps[r];
-            fprintf(t->out, " %s", tmptostr(buf, chunk, tmp));
+        for (int i = 0; i < fn->target->nparams; i++) {
+            int r = fn->target->params[i];
+            int tmp = fn->target->rtmps[r];
+            fprintf(t->out, " %s", tmptostr(buf, fn, tmp));
         }
     }
     fprintf(t->out, "\n");
     fprintf(t->out, ";     def:");
-    if (isreftmp(i->dst)) fprintf(t->out, " %s", tmptostr(buf, chunk, i->dst.val));
+    if (isreftmp(i->dst)) fprintf(t->out, " %s", tmptostr(buf, fn, i->dst.val));
     if (i->op == OP_CALL) {
-        for (int i = 0; i < chunk->target->nscratch; i++) {
-            int r = chunk->target->scratch[i];
-            int tmp = chunk->target->rtmps[r];
-            fprintf(t->out, " %s", tmptostr(buf, chunk, tmp));
+        for (int i = 0; i < fn->target->nscratch; i++) {
+            int r = fn->target->scratch[i];
+            int tmp = fn->target->rtmps[r];
+            fprintf(t->out, " %s", tmptostr(buf, fn, tmp));
         }
     }
     else if (i->op == OP_SCRATCH) {
-        for (int i = 0; i < chunk->target->nscratch; i++) {
-            int r = chunk->target->scratch[i];
-            int tmp = chunk->target->rtmps[r];
-            fprintf(t->out, " %s", tmptostr(buf, chunk, tmp));
+        for (int i = 0; i < fn->target->nscratch; i++) {
+            int r = fn->target->scratch[i];
+            int tmp = fn->target->rtmps[r];
+            fprintf(t->out, " %s", tmptostr(buf, fn, tmp));
         }
     }
     fprintf(t->out, "\n");
 }
 
-static void genblk(Task *t, Chunk *chunk, Block *blk) {
+static void genblk(Task *t, Func *fn, Block *blk) {
     char bufs[3][16];
     fprintf(t->out, ".L%i:\n", blk->lbl);
     for (int ip = 0; ip < blk->inscnt; ip++) {
         Ins *i = &blk->ins[ip];
-        fprintf(t->out, "; "); printins(t->out, chunk, i);
-        printusedef(t, chunk, i);
+        fprintf(t->out, "; "); printins(t->out, fn, i);
+        printusedef(t, fn, i);
         switch (i->op) {
         case OP_SCRATCH:
             fprintf(t->out, "; scratch\n");
             break;
         case OP_ARG: {
             int argn = i->args[0].val;
-            int r = chunk->target->params[argn];
-            reftostr(chunk, bufs[0], i->args[1]);
+            int r = fn->target->params[argn];
+            reftostr(fn, bufs[0], i->args[1]);
             fprintf(t->out, "mov %s, %s\n", rstr(r), bufs[0]);
             break;
         }
         case OP_CALL:
-            reftostr(chunk, bufs[0], i->dst);
-            reftostr(chunk, bufs[1], i->args[0]);
+            reftostr(fn, bufs[0], i->dst);
+            reftostr(fn, bufs[1], i->args[0]);
             fprintf(t->out, "call %s\n", bufs[1]);
             fprintf(t->out, "mov %s, rax\n", bufs[0]);
             break;
         case OP_ADD: {
             assert(isreftmp(i->dst));
-            reftostr(chunk, bufs[0], i->dst);
-            reftostr(chunk, bufs[1], i->args[0]);
-            reftostr(chunk, bufs[2], i->args[1]);
+            reftostr(fn, bufs[0], i->dst);
+            reftostr(fn, bufs[1], i->args[0]);
+            reftostr(fn, bufs[2], i->args[1]);
             fprintf(t->out, "mov %s, %s\n", bufs[0], bufs[1]);
             fprintf(t->out, "add %s, %s\n", bufs[0], bufs[2]);
             break;
         }
         case OP_LOAD8:
             fprintf(t->out, "movzx %s, byte [%s]\n",
-                    rstr(tmpr(chunk, i->dst.val)),
-                    rstr(tmpr(chunk, i->args[0].val)));
+                    rstr(tmpr(fn, i->dst.val)),
+                    rstr(tmpr(fn, i->args[0].val)));
             break;
         case OP_STORE8:
             fprintf(t->out, "mov byte [%s], %s\n",
-                    rstr(tmpr(chunk, i->args[0].val)),
-                    rstrb(tmpr(chunk, i->args[1].val)));
+                    rstr(tmpr(fn, i->args[0].val)),
+                    rstrb(tmpr(fn, i->args[1].val)));
             break;
         case OP_NOT: {
-            fprintf(t->out, "cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
-            fprintf(t->out, "setz %s\n", rstrb(tmpr(chunk, i->dst.val)));
+            fprintf(t->out, "cmp %s, 0\n", rstr(tmpr(fn, i->args[0].val)));
+            fprintf(t->out, "setz %s\n", rstrb(tmpr(fn, i->dst.val)));
             break;
         }
         case OP_CJMP:
-            fprintf(t->out, "cmp %s, 0\n", rstr(tmpr(chunk, i->args[0].val)));
+            fprintf(t->out, "cmp %s, 0\n", rstr(tmpr(fn, i->args[0].val)));
             fprintf(t->out, "jnz .L%i\n",  i->args[1].val);
             break;
         case OP_JMP:
@@ -167,17 +167,17 @@ static void genblk(Task *t, Chunk *chunk, Block *blk) {
             break;
         case OP_ALLOC: {
             assert(isreftmp(i->dst));
-            assert(isrefint(chunk, i->args[0]));
-            int size = chunk->cons[i->args[0].val].as.int_;
+            assert(isrefint(fn, i->args[0]));
+            int size = fn->cons[i->args[0].val].as.int_;
             int slots = (size + 15) / 16;
             fprintf(t->out, "sub rsp, %i * %i\n", slots, 16);
-            fprintf(t->out, "mov %s, rsp\n", rstr(tmpr(chunk, i->dst.val)));
+            fprintf(t->out, "mov %s, rsp\n", rstr(tmpr(fn, i->dst.val)));
             break;
         }
         case OP_MOV: {
             assert(isreftmp(i->dst));
-            reftostr(chunk, bufs[0], i->args[0]);
-            fprintf(t->out, "mov %s, %s\n", rstr(tmpr(chunk, i->dst.val)), bufs[0]);
+            reftostr(fn, bufs[0], i->args[0]);
+            fprintf(t->out, "mov %s, %s\n", rstr(tmpr(fn, i->dst.val)), bufs[0]);
             break;
         }
         default:
@@ -187,14 +187,14 @@ static void genblk(Task *t, Chunk *chunk, Block *blk) {
     }
 }
 
-static void genchunk(Task *t, Chunk *chunk) {
+static void genfn(Task *t, Func *fn) {
     fprintf(t->out, "; save registers\n");
     int slots = (R_MAX * 8 + 15) / 16;
     fprintf(t->out, "sub rsp, %i\n", slots * 16);
     for (int r = R_R12; r < R_MAX; r++)
         fprintf(t->out, "mov [rbp - %i], %s\n", (r - R_R12 + 1) * 8, rstr(r));
-    for (int i = 0; i < chunk->blkcnt; i++)
-        genblk(t, chunk, &chunk->blocks[i]);
+    for (int i = 0; i < fn->blkcnt; i++)
+        genblk(t, fn, &fn->blocks[i]);
     fprintf(t->out, "; restore registers\n");
     for (int r = R_R12; r < R_MAX; r++)
         fprintf(t->out, "mov %s, [rbp - %i]\n", rstr(r), (r - R_R12 + 1) * 8);
@@ -209,16 +209,16 @@ static Target T = {
     .nscratch = 9,
 };
 
-static void filter(Chunk *chunk) {
-    for (int bi = 0; bi < chunk->blkcnt; bi++) {
-        Block *blk = &chunk->blocks[bi];
+static void filter(Func *fn) {
+    for (int bi = 0; bi < fn->blkcnt; bi++) {
+        Block *blk = &fn->blocks[bi];
         for (int ip = 0; ip < blk->inscnt; ip++) {
             Ins *i = &blk->ins[ip];
             if (i->op == OP_ARG) {
                 int argn = i->args[0].val;
-                assert(argn < chunk->target->nparams);
-                int reg = chunk->target->params[argn];
-                int rtmp = chunk->target->rtmps[reg];
+                assert(argn < fn->target->nparams);
+                int reg = fn->target->params[argn];
+                int rtmp = fn->target->rtmps[reg];
                 assert(isreftmp(i->args[1]));
                 *i = imov(reftmp(rtmp), i->args[1]);
             }
@@ -228,13 +228,13 @@ static void filter(Chunk *chunk) {
 
 void amd64gen(Task *t) {
     // create pre-colored tmp for each regist
-    Chunk *chunk = t->chunk;
+    Func *fn = t->fn;
     T.rtmps = malloc(R_MAX * sizeof(int));
     T.nrtmps = R_MAX;
     for (int r = 0; r < R_MAX; r++) {
-        int tmp = newtmp(chunk);
-        chunk->tmps[tmp].reg = r;
-        chunk->tmps[tmp].precolored = 1;
+        int tmp = newtmp(fn);
+        fn->tmps[tmp].reg = r;
+        fn->tmps[tmp].precolored = 1;
         T.rtmps[r] = tmp;
     }
     // set usable regs for temps
@@ -242,10 +242,10 @@ void amd64gen(Task *t) {
     for (int r = R_R12; r < R_MAX; r++)
         T.freeregs |= 1 << r;
     T.rstr = rstr;
-    chunk->target = &T;
-    filter(chunk);
-    liveness(chunk);
-    color(t, chunk);
+    fn->target = &T;
+    filter(fn);
+    liveness(fn);
+    color(t, fn);
     fprintf(t->out, "bits 64\n");
     fprintf(t->out, "extern putchar\n");
     fprintf(t->out, "extern getchar\n");
@@ -256,9 +256,9 @@ void amd64gen(Task *t) {
     fprintf(t->out, "mov rbp, rsp\n");
     fprintf(t->out, "\n");
     fprintf(t->out, "%%if 0\n");
-    printchunk(t->out, chunk);
+    printfn(t->out, fn);
     fprintf(t->out, "%%endif\n\n");
-    genchunk(t, chunk);
+    genfn(t, fn);
     fprintf(t->out, "\n");
     fprintf(t->out, "mov rsp, rbp\n");
     fprintf(t->out, "pop rbp\n");

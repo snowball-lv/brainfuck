@@ -5,44 +5,44 @@
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
 
-int newblk(Chunk *chunk) {
-    chunk->blkcnt++;
-    chunk->blocks = realloc(chunk->blocks, chunk->blkcnt * sizeof(Block));
-    chunk->blocks[chunk->blkcnt - 1] = (Block){0};
-    return chunk->blkcnt - 1;
+int newblk(Func *fn) {
+    fn->blkcnt++;
+    fn->blocks = realloc(fn->blocks, fn->blkcnt * sizeof(Block));
+    fn->blocks[fn->blkcnt - 1] = (Block){0};
+    return fn->blkcnt - 1;
 }
 
-int newlbl(Chunk *chunk) {
+int newlbl(Func *fn) {
     // make label 0 invalid
-    if (!chunk->lblcnt) chunk->lblcnt++;
-    return chunk->lblcnt++;
+    if (!fn->lblcnt) fn->lblcnt++;
+    return fn->lblcnt++;
 }
 
-int newtmp(Chunk *chunk) {
-    chunk->tmpcnt++;
-    chunk->tmps = realloc(chunk->tmps, chunk->tmpcnt * sizeof(Tmp));
-    chunk->tmps[chunk->tmpcnt - 1] = (Tmp){0};
-    return chunk->tmpcnt - 1;
+int newtmp(Func *fn) {
+    fn->tmpcnt++;
+    fn->tmps = realloc(fn->tmps, fn->tmpcnt * sizeof(Tmp));
+    fn->tmps[fn->tmpcnt - 1] = (Tmp){0};
+    return fn->tmpcnt - 1;
 }
 
-static int newcons(Chunk *chunk) {
-    chunk->conscnt++;
-    chunk->cons = realloc(chunk->cons, chunk->conscnt * sizeof(Cons));
-    chunk->cons[chunk->conscnt - 1] = (Cons){0};
-    return chunk->conscnt - 1;
+static int newcons(Func *fn) {
+    fn->conscnt++;
+    fn->cons = realloc(fn->cons, fn->conscnt * sizeof(Cons));
+    fn->cons[fn->conscnt - 1] = (Cons){0};
+    return fn->conscnt - 1;
 }
 
-int newint(Chunk *chunk, int i) {
-    int id = newcons(chunk);
-    chunk->cons[id].type = CONS_INT;
-    chunk->cons[id].as.int_ = i;
+int newint(Func *fn, int i) {
+    int id = newcons(fn);
+    fn->cons[id].type = CONS_INT;
+    fn->cons[id].as.int_ = i;
     return id;
 }
 
-int newstr(Chunk *chunk, char *str) {
-    int id = newcons(chunk);
-    chunk->cons[id].type = CONS_STR;
-    chunk->cons[id].as.str = str;
+int newstr(Func *fn, char *str) {
+    int id = newcons(fn);
+    fn->cons[id].type = CONS_STR;
+    fn->cons[id].as.str = str;
     return id;
 }
 
@@ -66,12 +66,12 @@ int isrefcons(Ref r) {
     return r.type == REF_CONS;
 }
 
-int isrefint(Chunk *chunk, Ref r) {
-    return isrefcons(r) && chunk->cons[r.val].type == CONS_INT;
+int isrefint(Func *fn, Ref r) {
+    return isrefcons(r) && fn->cons[r.val].type == CONS_INT;
 }
 
-int isrefstr(Chunk *chunk, Ref r) {
-    return isrefcons(r) && chunk->cons[r.val].type == CONS_STR;
+int isrefstr(Func *fn, Ref r) {
+    return isrefcons(r) && fn->cons[r.val].type == CONS_STR;
 }
 
 void emitins(Block *blk, Ins ins) {
@@ -152,108 +152,108 @@ Ins iarg(int n, Ref arg) {
     return (Ins){.op = OP_ARG, .args = {{.val = n}, arg}};
 }
 
-static void reftostr(Chunk *chunk, char *buf, Ref r) {
+static void reftostr(Func *fn, char *buf, Ref r) {
     sprintf(buf, "[???]");
     if (r.type == REF_TMP) sprintf(buf, "$%i", r.val);
     if (r.type == REF_CONS) {
-        Cons *cons = &chunk->cons[r.val];
+        Cons *cons = &fn->cons[r.val];
         if (cons->type == CONS_INT) sprintf(buf, "%i", cons->as.int_);
         if (cons->type == CONS_STR) sprintf(buf, "%s", cons->as.str);
     }
     if (r.type == REF_LBL) sprintf(buf, "@L%i", r.val);
 }
 
-void printins(FILE *out, Chunk *chunk, Ins *i) {
+void printins(FILE *out, Func *fn, Ins *i) {
     char bufs[3][16];
     switch (i->op) {
     case OP_NOP: fprintf(out, "NOP\n"); break;
     case OP_ADD:
-        reftostr(chunk, bufs[0], i->dst);
-        reftostr(chunk, bufs[1], i->args[0]);
-        reftostr(chunk, bufs[2], i->args[1]);
+        reftostr(fn, bufs[0], i->dst);
+        reftostr(fn, bufs[1], i->args[0]);
+        reftostr(fn, bufs[2], i->args[1]);
         fprintf(out, "%s = ADD %s, %s\n", bufs[0], bufs[1], bufs[2]);
         break;
     case OP_LOAD8:
-        reftostr(chunk, bufs[0], i->dst);
-        reftostr(chunk, bufs[1], i->args[0]);
+        reftostr(fn, bufs[0], i->dst);
+        reftostr(fn, bufs[1], i->args[0]);
         fprintf(out, "%s = LOAD BYTE [%s]\n", bufs[0], bufs[1]);
         break;
     case OP_STORE8:
-        reftostr(chunk, bufs[0], i->args[0]);
-        reftostr(chunk, bufs[1], i->args[1]);
+        reftostr(fn, bufs[0], i->args[0]);
+        reftostr(fn, bufs[1], i->args[1]);
         fprintf(out, "[%s] = STORE BYTE %s\n", bufs[0], bufs[1]);
         break;
     case OP_JMP:
-        reftostr(chunk, bufs[0], i->args[0]);
+        reftostr(fn, bufs[0], i->args[0]);
         fprintf(out, "JMP %s\n", bufs[0]);
         break;
     case OP_CJMP:
-        reftostr(chunk, bufs[0], i->args[0]);
-        reftostr(chunk, bufs[1], i->args[1]);
+        reftostr(fn, bufs[0], i->args[0]);
+        reftostr(fn, bufs[1], i->args[1]);
         fprintf(out, "CJMP %s, %s\n", bufs[0], bufs[1]);
         break;
     case OP_NOT:
-        reftostr(chunk, bufs[0], i->dst);
-        reftostr(chunk, bufs[1], i->args[0]);
+        reftostr(fn, bufs[0], i->dst);
+        reftostr(fn, bufs[1], i->args[0]);
         fprintf(out, "%s = NOT %s\n", bufs[0], bufs[1]);
         break;
     case OP_ALLOC:
-        reftostr(chunk, bufs[0], i->dst);
-        reftostr(chunk, bufs[1], i->args[0]);
+        reftostr(fn, bufs[0], i->dst);
+        reftostr(fn, bufs[1], i->args[0]);
         fprintf(out, "%s = ALLOC %s\n", bufs[0], bufs[1]);
         break;
     case OP_MOV:
-        reftostr(chunk, bufs[0], i->dst);
-        reftostr(chunk, bufs[1], i->args[0]);
+        reftostr(fn, bufs[0], i->dst);
+        reftostr(fn, bufs[1], i->args[0]);
         fprintf(out, "%s = %s\n", bufs[0], bufs[1]);
         break;
     case OP_SCRATCH:
         fprintf(out, "SCRATCH\n");
         break;
     case OP_ARG:
-        reftostr(chunk, bufs[0], i->args[1]);
+        reftostr(fn, bufs[0], i->args[1]);
         fprintf(out, "ARG #%i, %s\n", i->args[0].val, bufs[0]);
         break;
     case OP_CALL:
-        reftostr(chunk, bufs[0], i->dst);
-        reftostr(chunk, bufs[1], i->args[0]);
+        reftostr(fn, bufs[0], i->dst);
+        reftostr(fn, bufs[1], i->args[0]);
         fprintf(out, "%s = CALL [%s]\n", bufs[0], bufs[1]);
         break;
     default: fprintf(out, "???\n"); break;
     }
 }
 
-static void printblock(FILE *out, Chunk *chunk, Block *blk) {
+static void printblock(FILE *out, Func *fn, Block *blk) {
     fprintf(out, "Block @L%i ->", blk->lbl);
     if (blk->outlbls[0]) fprintf(out, " @L%i", blk->outlbls[0]);
     if (blk->outlbls[1]) fprintf(out, " @L%i", blk->outlbls[1]);
     fprintf(out, "\n");
     if (blk->livein) {
         fprintf(out, "Live in");
-        for (int tmp = 0; tmp < chunk->tmpcnt; tmp++)
+        for (int tmp = 0; tmp < fn->tmpcnt; tmp++)
             if (blk->livein[tmp]) fprintf(out, " $%i", tmp);
         fprintf(out, "\n");
     }
     if (blk->liveout) {
         fprintf(out, "Live out");
-        for (int tmp = 0; tmp < chunk->tmpcnt; tmp++)
+        for (int tmp = 0; tmp < fn->tmpcnt; tmp++)
             if (blk->liveout[tmp]) fprintf(out, " $%i", tmp);
         fprintf(out, "\n");
     }
     for (int ip = 0; ip < blk->inscnt; ip++) {
         fprintf(out, "%3i: ", ip);
-        printins(out, chunk, &blk->ins[ip]);
+        printins(out, fn, &blk->ins[ip]);
     }
 }
 
-void printchunk(FILE *out, Chunk *chunk) {
-    for (int i = 0; i < chunk->blkcnt; i++)
-        printblock(out, chunk, &chunk->blocks[i]);
+void printfn(FILE *out, Func *fn) {
+    for (int i = 0; i < fn->blkcnt; i++)
+        printblock(out, fn, &fn->blocks[i]);
 }
 
-Block *findblk(Chunk *chunk, int lbl) {
-    for (int i = 0; i < chunk->blkcnt; i++)
-        if (chunk->blocks[i].lbl == lbl) return &chunk->blocks[i];
+Block *findblk(Func *fn, int lbl) {
+    for (int i = 0; i < fn->blkcnt; i++)
+        if (fn->blocks[i].lbl == lbl) return &fn->blocks[i];
     return 0;
 }
 
@@ -266,17 +266,17 @@ static void setunion(char *dst, char *src, int cnt) {
 #define USE(n) ((i->use & BIT((n))) && isreftmp(i->args[(n)]))
 #define TMP(n) (i->args[(n)].val)
 
-static int blkliveness(Chunk *chunk, Block *blk) {
+static int blkliveness(Func *fn, Block *blk) {
     int change = 0;
-    char *set = malloc(chunk->tmpcnt);
-    memcpy(set, blk->liveout, chunk->tmpcnt);
+    char *set = malloc(fn->tmpcnt);
+    memcpy(set, blk->liveout, fn->tmpcnt);
     for (int i = 0; i < 2; i++) {
         if (!blk->outlbls[i]) continue;
-        Block *outblk = findblk(chunk, blk->outlbls[i]);
-        setunion(blk->liveout, outblk->livein, chunk->tmpcnt);
+        Block *outblk = findblk(fn, blk->outlbls[i]);
+        setunion(blk->liveout, outblk->livein, fn->tmpcnt);
     }
-    change = memcmp(set, blk->liveout, chunk->tmpcnt);
-    memcpy(set, blk->liveout, chunk->tmpcnt);
+    change = memcmp(set, blk->liveout, fn->tmpcnt);
+    memcpy(set, blk->liveout, fn->tmpcnt);
     for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
         Ins *i = &blk->ins[ip];
         if (i->op == OP_ARG) {
@@ -286,7 +286,7 @@ static int blkliveness(Chunk *chunk, Block *blk) {
         // def
         if (isreftmp(i->dst)) set[i->dst.val] = 0;
         if (i->op == OP_CALL || i->op == OP_SCRATCH) {
-            Target *t = chunk->target;
+            Target *t = fn->target;
             for (int i = 0; i < t->nscratch; i++) {
                 int r = t->scratch[i];
                 int tmp = t->rtmps[r];
@@ -297,7 +297,7 @@ static int blkliveness(Chunk *chunk, Block *blk) {
         if (isreftmp(i->args[0])) set[i->args[0].val] = 1;
         if (isreftmp(i->args[1])) set[i->args[1].val] = 1;
         if (i->op == OP_CALL) {
-            Target *t = chunk->target;
+            Target *t = fn->target;
             for (int i = 0; i < t->nparams; i++) {
                 int r = t->params[i];
                 int tmp = t->rtmps[r];
@@ -305,52 +305,52 @@ static int blkliveness(Chunk *chunk, Block *blk) {
             }
         }
     }
-    change |= memcmp(set, blk->livein, chunk->tmpcnt);
-    memcpy(blk->livein, set, chunk->tmpcnt);
+    change |= memcmp(set, blk->livein, fn->tmpcnt);
+    memcpy(blk->livein, set, fn->tmpcnt);
     free(set);
     return change;
 }
 
-void liveness(Chunk *chunk) {
-    for (int bi = 0; bi < chunk->blkcnt; bi++) {
-        Block *blk = &chunk->blocks[bi];
-        blk->livein = malloc(chunk->tmpcnt);
-        blk->liveout = malloc(chunk->tmpcnt);
-        memset(blk->livein, 0, chunk->tmpcnt);
-        memset(blk->liveout, 0, chunk->tmpcnt);
+void liveness(Func *fn) {
+    for (int bi = 0; bi < fn->blkcnt; bi++) {
+        Block *blk = &fn->blocks[bi];
+        blk->livein = malloc(fn->tmpcnt);
+        blk->liveout = malloc(fn->tmpcnt);
+        memset(blk->livein, 0, fn->tmpcnt);
+        memset(blk->liveout, 0, fn->tmpcnt);
     }
 again:
-    for (int bi = 0; bi < chunk->blkcnt; bi++) {
-        Block *blk = &chunk->blocks[bi];
-        if (blkliveness(chunk, blk)) goto again;
+    for (int bi = 0; bi < fn->blkcnt; bi++) {
+        Block *blk = &fn->blocks[bi];
+        if (blkliveness(fn, blk)) goto again;
     }
 }
 
-void interferes(Chunk *chunk, char *set, int tmp) {
-    char *live = malloc(chunk->tmpcnt);
-    for (int bi = 0; bi < chunk->blkcnt; bi++) {
-        Block *blk = &chunk->blocks[bi];
-        memcpy(live, blk->liveout, chunk->tmpcnt);
-        if (live[tmp]) setunion(set, live, chunk->tmpcnt);
+void interferes(Func *fn, char *set, int tmp) {
+    char *live = malloc(fn->tmpcnt);
+    for (int bi = 0; bi < fn->blkcnt; bi++) {
+        Block *blk = &fn->blocks[bi];
+        memcpy(live, blk->liveout, fn->tmpcnt);
+        if (live[tmp]) setunion(set, live, fn->tmpcnt);
         for (int ip = blk->inscnt - 1; ip >= 0; ip--) {
             Ins *i = &blk->ins[ip];
             // add defined tmps to live set
             if (isreftmp(i->dst)) live[i->dst.val] = 1;
             if (i->op == OP_CALL || i->op == OP_SCRATCH) {
-                for (int i = 0; i < chunk->target->nscratch; i++) {
-                    int r = chunk->target->scratch[i];
-                    int tmp = chunk->target->rtmps[r];
+                for (int i = 0; i < fn->target->nscratch; i++) {
+                    int r = fn->target->scratch[i];
+                    int tmp = fn->target->rtmps[r];
                     live[tmp] = 1;
                 }
             }
-            if (live[tmp]) setunion(set, live, chunk->tmpcnt);
+            if (live[tmp]) setunion(set, live, fn->tmpcnt);
             // update live set
             // def
             if (isreftmp(i->dst)) live[i->dst.val] = 0;
             if (i->op == OP_CALL || i->op == OP_SCRATCH) {
-                for (int i = 0; i < chunk->target->nscratch; i++) {
-                    int r = chunk->target->scratch[i];
-                    int tmp = chunk->target->rtmps[r];
+                for (int i = 0; i < fn->target->nscratch; i++) {
+                    int r = fn->target->scratch[i];
+                    int tmp = fn->target->rtmps[r];
                     live[tmp] = 0;
                 }
             }
@@ -358,13 +358,13 @@ void interferes(Chunk *chunk, char *set, int tmp) {
             if (isreftmp(i->args[0])) live[i->args[0].val] = 1;
             if (isreftmp(i->args[1])) live[i->args[1].val] = 1;
             if (i->op == OP_CALL) {
-                for (int i = 0; i < chunk->target->nparams; i++) {
-                    int r = chunk->target->params[i];
-                    int tmp = chunk->target->rtmps[r];
+                for (int i = 0; i < fn->target->nparams; i++) {
+                    int r = fn->target->params[i];
+                    int tmp = fn->target->rtmps[r];
                     live[tmp] = 1;
                 }
             }
-            if (live[tmp]) setunion(set, live, chunk->tmpcnt);
+            if (live[tmp]) setunion(set, live, fn->tmpcnt);
         }
     }
     free(live);
@@ -372,21 +372,21 @@ void interferes(Chunk *chunk, char *set, int tmp) {
     set[tmp] = 0;
 }
 
-void color(Task *t, Chunk *chunk) {
-    char *set = malloc(chunk->tmpcnt);
-    for (int tmp = 0; tmp < chunk->tmpcnt; tmp++) {
-        if (chunk->tmps[tmp].precolored) continue;
-        chunk->tmps[tmp].reg = 0;
-        int freeregs = chunk->target->freeregs;
-        memset(set, 0, chunk->tmpcnt);
-        interferes(chunk, set, tmp);
+void color(Task *t, Func *fn) {
+    char *set = malloc(fn->tmpcnt);
+    for (int tmp = 0; tmp < fn->tmpcnt; tmp++) {
+        if (fn->tmps[tmp].precolored) continue;
+        fn->tmps[tmp].reg = 0;
+        int freeregs = fn->target->freeregs;
+        memset(set, 0, fn->tmpcnt);
+        interferes(fn, set, tmp);
         fprintf(t->out, "; $%i -", tmp);
-        for (int i = 0; i < chunk->tmpcnt; i++) {
+        for (int i = 0; i < fn->tmpcnt; i++) {
             if (!set[i]) continue;
             fprintf(t->out, " $%i", i);
-            if (!chunk->tmps[i].reg) continue;
-            fprintf(t->out, "(%s)", chunk->target->rstr(chunk->tmps[i].reg));
-            freeregs &= ~(1 << chunk->tmps[i].reg);
+            if (!fn->tmps[i].reg) continue;
+            fprintf(t->out, "(%s)", fn->target->rstr(fn->tmps[i].reg));
+            freeregs &= ~(1 << fn->tmps[i].reg);
         }
         fprintf(t->out, "\n");
         if (!freeregs) {
@@ -394,8 +394,8 @@ void color(Task *t, Chunk *chunk) {
             exit(1);
         }
         int reg = __builtin_ctz(freeregs);
-        chunk->tmps[tmp].reg = reg;
-        fprintf(t->out, "; $%i = %s\n", tmp, chunk->target->rstr(reg));
+        fn->tmps[tmp].reg = reg;
+        fprintf(t->out, "; $%i = %s\n", tmp, fn->target->rstr(reg));
     }
     free(set);
 }

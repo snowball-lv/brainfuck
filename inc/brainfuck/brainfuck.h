@@ -1,13 +1,13 @@
 #pragma once
 
-typedef struct Chunk Chunk;
+typedef struct Func Func;
 
 typedef struct {
     char *infile;
     char *outfile;
     char *src;
     FILE *out;
-    Chunk *chunk;
+    Func *fn;
 } Task;
 
 void bfwrite(int c);

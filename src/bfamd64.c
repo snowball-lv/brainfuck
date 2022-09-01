@@ -89,8 +89,8 @@ void gennasm(Task *t) {
 }
 
 void genirnasm(Task *t) {
-    t->chunk = malloc(sizeof(Chunk));
-    memset(t->chunk, 0, sizeof(Chunk));
+    t->fn = malloc(sizeof(Func));
+    memset(t->fn, 0, sizeof(Func));
     bftoir(t);
     amd64gen(t);
 }

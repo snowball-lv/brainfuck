@@ -68,7 +68,7 @@ typedef struct {
     char *(*rstr)(int reg);
 } Target;
 
-struct Chunk {
+struct Func {
     Block *blocks;
     int blkcnt;
     Block *curblk;
@@ -81,18 +81,18 @@ struct Chunk {
     Target *target;
 };
 
-int newblk(Chunk *chunk);
-int newlbl(Chunk *chunk);
-int newtmp(Chunk *chunk);
-int newint(Chunk *chunk, int i);
-int newstr(Chunk *chunk, char *str);
+int newblk(Func *fn);
+int newlbl(Func *fn);
+int newtmp(Func *fn);
+int newint(Func *fn, int i);
+int newstr(Func *fn, char *str);
 Ref reftmp(int id);
 Ref reflbl(int id);
 Ref refcons(int id);
 
 int isreftmp(Ref r);
-int isrefint(Chunk *chunk, Ref r);
-int isrefstr(Chunk *chunk, Ref r);
+int isrefint(Func *fn, Ref r);
+int isrefstr(Func *fn, Ref r);
 
 void emitins(Block *blk, Ins ins);
 void erase(Block *blk, int pos, int cnt);
@@ -110,8 +110,8 @@ Ins icall(Ref dst, Ref name);
 Ins iscratch();
 Ins iarg(int n, Ref arg);
 
-void printchunk(FILE *out, Chunk *chunk);
-void printins(FILE *out, Chunk *chunk, Ins *i);
+void printfn(FILE *out, Func *fn);
+void printins(FILE *out, Func *fn, Ins *i);
 
-void liveness(Chunk *chunk);
-void color(Task *t, Chunk *chunk);
+void liveness(Func *fn);
+void color(Task *t, Func *fn);
