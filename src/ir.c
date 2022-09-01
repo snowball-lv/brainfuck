@@ -21,11 +21,13 @@ Func *newfn(Mod *m) {
     return fn;
 }
 
-int newblk(Func *fn) {
-    fn->blkcnt++;
-    fn->blocks = realloc(fn->blocks, fn->blkcnt * sizeof(Block));
-    fn->blocks[fn->blkcnt - 1] = (Block){0};
-    return fn->blkcnt - 1;
+Block *newblk(Func *fn) {
+    Block *blk = malloc(sizeof(Block));
+    memset(blk, 0, sizeof(Block));
+    fn->nblks++;
+    fn->blks = realloc(fn->blks, fn->nblks * sizeof(Block *));
+    fn->blks[fn->nblks - 1] = blk;
+    return blk;
 }
 
 int newlbl(Func *fn) {
@@ -263,13 +265,13 @@ static void printblock(FILE *out, Func *fn, Block *blk) {
 }
 
 void printfn(FILE *out, Func *fn) {
-    for (int i = 0; i < fn->blkcnt; i++)
-        printblock(out, fn, &fn->blocks[i]);
+    for (int i = 0; i < fn->nblks; i++)
+        printblock(out, fn, fn->blks[i]);
 }
 
 Block *findblk(Func *fn, int lbl) {
-    for (int i = 0; i < fn->blkcnt; i++)
-        if (fn->blocks[i].lbl == lbl) return &fn->blocks[i];
+    for (int i = 0; i < fn->nblks; i++)
+        if (fn->blks[i]->lbl == lbl) return fn->blks[i];
     return 0;
 }
 
@@ -328,24 +330,24 @@ static int blkliveness(Func *fn, Block *blk) {
 }
 
 void liveness(Func *fn) {
-    for (int bi = 0; bi < fn->blkcnt; bi++) {
-        Block *blk = &fn->blocks[bi];
+    for (int bi = 0; bi < fn->nblks; bi++) {
+        Block *blk = fn->blks[bi];
         blk->livein = malloc(fn->tmpcnt);
         blk->liveout = malloc(fn->tmpcnt);
         memset(blk->livein, 0, fn->tmpcnt);
         memset(blk->liveout, 0, fn->tmpcnt);
     }
 again:
-    for (int bi = 0; bi < fn->blkcnt; bi++) {
-        Block *blk = &fn->blocks[bi];
+    for (int bi = 0; bi < fn->nblks; bi++) {
+        Block *blk = fn->blks[bi];
         if (blkliveness(fn, blk)) goto again;
     }
 }
 
 void interferes(Func *fn, char *set, int tmp) {
     char *live = malloc(fn->tmpcnt);
-    for (int bi = 0; bi < fn->blkcnt; bi++) {
-        Block *blk = &fn->blocks[bi];
+    for (int bi = 0; bi < fn->nblks; bi++) {
+        Block *blk = fn->blks[bi];
         memcpy(live, blk->liveout, fn->tmpcnt);
         if (live[tmp]) setunion(set, live, fn->tmpcnt);
         for (int ip = blk->inscnt - 1; ip >= 0; ip--) {

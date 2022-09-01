@@ -194,8 +194,8 @@ static void genfn(Task *t, Func *fn) {
     fprintf(t->out, "sub rsp, %i\n", slots * 16);
     for (int r = R_R12; r < R_MAX; r++)
         fprintf(t->out, "mov [rbp - %i], %s\n", (r - R_R12 + 1) * 8, rstr(r));
-    for (int i = 0; i < fn->blkcnt; i++)
-        genblk(t, fn, &fn->blocks[i]);
+    for (int i = 0; i < fn->nblks; i++)
+        genblk(t, fn, fn->blks[i]);
     fprintf(t->out, "; restore registers\n");
     for (int r = R_R12; r < R_MAX; r++)
         fprintf(t->out, "mov %s, [rbp - %i]\n", rstr(r), (r - R_R12 + 1) * 8);
@@ -211,8 +211,8 @@ static Target T = {
 };
 
 static void filter(Func *fn) {
-    for (int bi = 0; bi < fn->blkcnt; bi++) {
-        Block *blk = &fn->blocks[bi];
+    for (int bi = 0; bi < fn->nblks; bi++) {
+        Block *blk = fn->blks[bi];
         for (int ip = 0; ip < blk->inscnt; ip++) {
             Ins *i = &blk->ins[ip];
             if (i->op == OP_ARG) {

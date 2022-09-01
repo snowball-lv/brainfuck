@@ -69,14 +69,12 @@ typedef struct {
 } Target;
 
 typedef struct {
-    Block *blocks;
-    int blkcnt;
-    Block *curblk;
+    Block **blks;
+    int nblks;
     Tmp *tmps;
     int tmpcnt;
     Cons *cons;
     int conscnt;
-    int dptmpid;
     int lblcnt;
     Target *target;
 } Func;
@@ -88,7 +86,7 @@ struct Mod {
 
 Mod *newmod();
 Func *newfn(Mod *m);
-int newblk(Func *fn);
+Block *newblk(Func *fn);
 int newlbl(Func *fn);
 int newtmp(Func *fn);
 int newint(Func *fn, int i);
