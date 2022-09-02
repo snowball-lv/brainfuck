@@ -4,10 +4,12 @@
 #include <brainfuck/common.h>
 #include <brainfuck/brainfuck.h>
 #include <brainfuck/ir.h>
+#include <brainfuck/il.h>
 
 static char *OPTS[] = {
     "-c:default, compiles to NASM and prints to stdout",
     "-cir:compiles to NASM using intermediate representation",
+    "-cil:compiles intermediate language to NASM",
     "-i:interpret using ASM interpreter",
     "-ic:interpret using C interpreter",
     "-o:output file",
@@ -58,11 +60,13 @@ int main(int argc, char **argv) {
     int runc = 0;
     int compile = 1;
     int compileir = 0;
+    int compileil = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0) run = 1;
         else if (strcmp(argv[i], "-ic") == 0) runc = 1;
         else if (strcmp(argv[i], "-c") == 0) compile = 1;
         else if (strcmp(argv[i], "-cir") == 0) compileir = 1;
+        else if (strcmp(argv[i], "-cil") == 0) compileil = 1;
         else if (strcmp(argv[i], "-o") == 0) task.outfile = argv[++i];
         else if (!task.infile) task.infile = argv[i];
         else printf("*** unknown option [%s]\n", argv[i]);
@@ -80,6 +84,7 @@ int main(int argc, char **argv) {
     if (!task.out) exit(1);
     if (run) interpretasm(task.src);
     else if (runc) interpretc(task.src);
+    else if (compileil) ilc(&task);
     else if (compileir) genirnasm(&task);
     else if (compile) gennasm(&task);
     free(task.src);

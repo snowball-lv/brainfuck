@@ -69,6 +69,7 @@ typedef struct {
 } Target;
 
 typedef struct {
+    char *name;
     Block **blks;
     int nblks;
     Tmp *tmps;

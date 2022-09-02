@@ -124,6 +124,7 @@ void bftoir(Task *t) {
     Context ctx;
     ctx.t = t;
     ctx.fn = newfn(t->m);
+    ctx.fn->name = "main";
     ctx.dptmp = newtmp(ctx.fn);
     pushblk(&ctx, ctx.fn);
     zerodata(&ctx, ctx.fn);

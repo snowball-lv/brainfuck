@@ -250,8 +250,8 @@ static void amd64genfn(Task *t, Func *fn) {
     fprintf(t->out, "extern putchar\n");
     fprintf(t->out, "extern getchar\n");
     fprintf(t->out, "section .text\n");
-    fprintf(t->out, "global main\n");
-    fprintf(t->out, "main:\n");
+    fprintf(t->out, "global %s\n", fn->name);
+    fprintf(t->out, "%s:\n", fn->name);
     fprintf(t->out, "push rbp\n");
     fprintf(t->out, "mov rbp, rsp\n");
     fprintf(t->out, "\n");

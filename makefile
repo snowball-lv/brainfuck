@@ -29,10 +29,12 @@ $(BIN): $(OBJS) $(AOBJS) | bin
 	$(CC) $^ -o $@
 
 clean:
+	$(MAKE) -s -C bftest clean
 	rm -rf out bin
 
-test: all
-	$(BIN) -cir hello.bf >prog.asm
-	nasm -f elf64 prog.asm -o prog.o
-	gcc -static prog.o -o prog
-	printf "hello\0" | ./prog
+.PHONY: bftest
+bftest:
+	$(MAKE) -s -C bftest
+
+test: all bftest
+	# $(BIN) -cil main.il -o prog.asm
